@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+  <!-- Security -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self';
+                 script-src  'self' https://cdn.tailwindcss.com 'unsafe-inline';
+                 style-src   'self' https://cdn.tailwindcss.com https://fonts.googleapis.com 'unsafe-inline';
+                 font-src    'self' https://fonts.gstatic.com;">
+
+  <title>Shogun: Gekokujō – Living Rulebook</title>
+
+  <!-- Tailwind + Google Fonts -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Lora:wght@400;600;700&display=swap"
+        rel="stylesheet">
+
+  <!-- Project styles -->
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="antialiased">
+  <!-- Reading-progress bar -->
+  <div id="progress-bar"
+       class="fixed top-0 left-0 h-1 bg-accent-secondary z-[200]"
+       style="width:0%"></div>
+
+  <!-- =========  TOP NAVIGATION  ========= -->
+  <nav id="top-nav">
+    <!-- mobile hamburger -->
+    <button id="mobile-toc-toggle"
+            type="button"
+            aria-label="Toggle table of contents"
+            aria-controls="mobile-toc-panel"
+            aria-expanded="false"
+            class="lg:hidden p-2.5">
+      <svg xmlns="http://www.w3.org/2000/svg"
+           class="h-6 w-6 text-white"
+           fill="none"
+           stroke="currentColor"
+           viewBox="0 0 24 24">
+        <path stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 6h16M4 12h16M4 18h16"/>
+      </svg>
+    </button>
+
+    <!-- desktop nav links -->
+    <div class="hidden lg:flex items-center">
+      <a href="#start"      class="nav-link">Start</a>
+      <a href="#new-players" class="nav-link">New Players</a>
+      <a href="#rules"      class="nav-link">Rules</a>
+      <a href="#modules"    class="nav-link">Modules</a>
+      <a href="#strategy"   class="nav-link">Strategy</a>
+      <a href="#timing"     class="nav-link">Timing</a>
+      <a href="#reference"  class="nav-link">Reference</a>
+      <a href="#feedback"   class="nav-link">Feedback</a>
+      <a href="#about"      class="nav-link">About</a>
+    </div>
+
+    <!-- theme & lang -->
+    <div>
+      <a href="index_de.html"
+         id="lang-switch"
+         title="Zu Deutsch wechseln"
+         class="p-2 rounded-full hover:bg-gray-700">DE</a>
+      <button id="theme-toggle"
+              type="button"
+              aria-label="Toggle light/dark theme"
+              class="p-2 rounded-full hover:bg-gray-700">
+        <svg id="theme-icon-sun" class="theme-icon hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm-.707 12.122a1 1 0 011.414 0l.707-.707a1 1 0 111.414 1.414l-.707.707a1 1 0 01-1.414 0zM17 13a1 1 0 100 2h1a1 1 0 100-2h-1z" clip-rule="evenodd"/></svg>
+        <svg id="theme-icon-moon" class="theme-icon hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>
+      </button>
+    </div>
+  </nav>
+
+  <!-- sticky header for mobile rules -->
+  <div id="mobile-sticky-header" class="lg:hidden"></div>
+
+  <!-- =========  LAYOUT WRAPPER  ========= -->
+  <div class="lg:flex">
+    <!-- desktop TOC -->
+    <nav id="toc-container"
+         class="hidden lg:block fixed top-16 left-0 h-[calc(100vh-4rem)] z-30
+                bg-black/50 backdrop-blur-md border-r border-gray-800">
+      <div class="h-full overflow-y-auto overflow-x-hidden p-4 flex flex-col">
+        <div class="flex items-center justify-between mb-4 flex-shrink-0">
+          <h3 id="toc-title"
+              class="text-xl font-bold whitespace-nowrap opacity-0 transition-opacity duration-200"
+              style="font-family:'Lora',serif">Contents</h3>
+        </div>
+
+        <div id="toc-search-container"
+             class="relative mb-4 flex-shrink-0 opacity-0 transition-opacity duration-200">
+          <input id="toc-search"
+                 type="text"
+                 placeholder="Search rules…"
+                 class="w-full bg-gray-800 border border-gray-700 rounded-md py-2 pl-4 pr-8
+                        focus:outline-none focus:ring-2 focus:ring-accent-primary">
+          <svg xmlns="http://www.w3.org/2000/svg"
+               class="h-5 w-5 absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400"
+               fill="none"
+               stroke="currentColor"
+               viewBox="0 0 24 24">
+            <path stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+        </div>
+
+        <ul id="toc-list" class="space-y-2 flex-grow opacity-0 transition-opacity duration-200"></ul>
+        <p id="toc-no-results" class="hidden text-center p-4">No results found</p>
+      </div>
+    </nav>
+
+    <!-- =========  MAIN CONTENT  ========= -->
+    <main id="app-wrapper" class="w-full">
+        <!-- Content will be injected by script.js -->
+    </main>
+  </div>
+
+  <!-- =========  MOBILE TOC PANEL  ========= -->
+  <div id="mobile-toc-panel"
+       role="dialog"
+       aria-modal="true"
+       class="hidden lg:hidden fixed inset-0 z-[110]
+              bg-black/90 backdrop-blur-sm p-8 overflow-y-auto">
+    <h3 class="text-2xl font-bold text-white mb-6"
+        style="font-family:'Lora',serif">Contents</h3>
+    <ul id="mobile-toc-list" class="space-y-3"></ul>
+
+    <button id="mobile-toc-close"
+            type="button"
+            class="absolute top-4 right-4 p-2.5 text-white">
+      <svg xmlns="http://www.w3.org/2000/svg"
+           class="h-8 w-8"
+           fill="none"
+           stroke="currentColor"
+           viewBox="0 0 24 24">
+        <path stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
+
+    <!-- bottom close bar -->
+    <button id="mobile-toc-close-bottom"
+            type="button"
+            class="lg:hidden fixed bottom-0 left-0 right-0 w-full p-4
+                   text-center font-bold bg-gray-800 border-t border-gray-700
+                   text-white">Close</button>
+  </div>
+
+  <!-- =========  BACK-TO-TOP  ========= -->
+  <button id="back-to-top"
+          type="button"
+          aria-label="Go to top"
+          class="fixed bottom-8 right-8 w-12 h-12 rounded-full
+                 bg-gray-900/70 backdrop-blur border border-gray-700
+                 text-white hidden items-center justify-center
+                 hover:bg-accent-primary transition">
+    <svg xmlns="http://www.w3.org/2000/svg"
+         class="h-6 w-6"
+         fill="none"
+         stroke="currentColor"
+         viewBox="0 0 24 24">
+      <path stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M5 15l7-7 7 7"/>
+    </svg>
+  </button>
+
+  <!-- =========  BOTTOM MOBILE NAV  ========= -->
+  <nav id="bottom-nav"
+       class="lg:hidden fixed bottom-0 left-0 right-0 h-14
+              bg-black/80 backdrop-blur-sm border-t border-gray-800
+              z-50 flex justify-start items-center overflow-x-auto">
+    <!-- Links will be injected by script.js -->
+  </nav>
+
+  <!-- =========  JAVASCRIPT  ========= -->
+  <script src="script.js"></script>
+</body>
+</html>
