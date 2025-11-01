@@ -1,14 +1,14 @@
 :root {
-    --bg-primary: #1a1a1a;
-    --bg-secondary: #2a2a2a;
+    --bg-primary: #000000; /* Changed from #1a1a1a to true black */
+    --bg-secondary: #121212;
     --text-primary: #f0f0f0;
     --text-secondary: #a0a0a0;
-    --accent-primary: #3b82f6; /* Tailwind blue-500 */
-    --accent-secondary: #f59e0b; /* Retained original amber for branding */
-    --border-color: #444;
-    --bg-table-header: #333;
-    --bg-table-cell: #222;
-    --bg-module-row: rgba(59, 130, 246, 0.1); /* Updated to new accent */
+    --accent-primary: #3b82f6;
+    --accent-secondary: #f59e0b;
+    --border-color: #2d2d2d; /
+    --bg-table-header: #1f1f1f; /* Darkened for the new theme */
+    --bg-table-cell: #121212; /* Matches the new card background */
+    --bg-module-row: rgba(59, 130, 246, 0.1);
     --text-module-row: var(--accent-primary);
     --toc-width-collapsed: 4rem;
     --toc-width-expanded: 20rem;
@@ -46,10 +46,11 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    -webkit-tap-highlight-color: transparent;
 }
 
 h1, h2, h3, h4, h5 {
-    font-family: 'Lora', serif;
+    font-family: 'Inter', sans-serif;
     color: var(--text-primary);
     font-weight: 700;
     border-bottom: 1px solid var(--border-color);
@@ -269,7 +270,11 @@ body.light-mode #top-nav { background-color: rgba(248, 249, 250, 0.8); }
     border-bottom: 2px solid transparent;
     transition: all 0.3s ease;
 }
-.nav-link:hover { color: var(--text-primary); }
+@media (hover: hover) {
+    .nav-link:hover {
+        color: var(--text-primary);
+    }
+}
 .nav-link.active { color: var(--accent-secondary); border-bottom-color: var(--accent-secondary); }
 
 .nav-icon {
@@ -313,8 +318,29 @@ body.light-mode #lang-switch:hover { background-color: rgba(0, 0, 0, 0.1); }
     overscroll-behavior: contain;
     padding-bottom: 6rem; /* Space for bottom close bar */
 }
-#bottom-nav::-webkit-scrollbar { display: none; }
-#bottom-nav { -ms-overflow-style: none; scrollbar-width: none; }
+#bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3.5rem; /* 56px */
+    background-color: rgba(17, 17, 17, 0.8);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--border-color);
+    z-index: 50;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    overflow-x: auto;
+    /* This is the Safari optimization for the home indicator */
+    padding-bottom: env(safe-area-inset-bottom);
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+body.light-mode #bottom-nav {
+    background-color: rgba(248, 249, 250, 0.8);
+}
 
 /* Form Styles */
 .form-input, .form-textarea {
@@ -399,4 +425,12 @@ body.light-mode .form-button:hover { background-color: #fb923c; }
         transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
     }
+}
+/* Fix for headline spacing */
+h2, .h2 {
+    margin-top: 0 !important;
+}
+
+.page-section {
+    margin-top: 4rem; /* Adds space BETWEEN content blocks */
 }
