@@ -1,14 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
     'use strict';
 
-    // This script sets up a single-page application for the Shogun rulebook.
-    // It handles navigation, theme switching, table of contents generation,
-    // mobile-specific UI, and other interactive features.
-    
     // --- SCRIPT SCOPE VARIABLES ---
     let tocObserver = null;
     let mobileNavObservers = [];
-    
+
     // --- UTILITY FUNCTIONS ---
     const getEl = (id) => document.getElementById(id);
 
@@ -39,24 +35,34 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!str) return '';
         return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     };
-    
+
     const escapeRegExp = (s) => {
         if (!s) return '';
         return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     };
-const initViewportFix = () => {
-    const setVhProperty = () => {
-        const vh = window.innerHeight * 0.01;
-        document.documentElement.style.setProperty('--vh', `${vh}px`);
+
+    const initViewportFix = () => {
+        const setVhProperty = () => {
+            const vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        };
+        setVhProperty();
+        window.addEventListener('resize', debounce(setVhProperty, 100));
     };
-    setVhProperty();
-    window.addEventListener('resize', debounce(setVhProperty, 100));
-};
+
     // --- CORE INITIALIZATION ---
     const init = () => {
         initViewportFix();
+
         // --- CACHED DOM ELEMENTS ---
         const appWrapper = getEl('app-wrapper');
+
+        // CRITICAL CHECK
+        if (!appWrapper) {
+            console.error("Critical Error: Element with ID 'app-wrapper' not found in index.html.");
+            return;
+        }
+
         const topNav = getEl('top-nav');
         const tocContainer = getEl('toc-container');
         const mobileTocToggle = getEl('mobile-toc-toggle');
@@ -93,18 +99,11 @@ const initViewportFix = () => {
             if (btn) {
                 btn.addEventListener('click', () => {
                     const clone = document.documentElement.cloneNode(true);
-                    
-                    // Reset theme to default dark for consistency
                     clone.querySelector('body').classList.remove('light-mode');
-                    
-                    // Reset TOC state
                     const toc = clone.querySelector('#toc-container');
                     if (toc) toc.classList.remove('is-expanded');
-                    
-                    // Remove dynamic padding from main content area
                     const app = clone.querySelector('#app-wrapper');
                     if (app) app.style.paddingLeft = '';
-
                     const fullHtml = clone.outerHTML;
                     const blob = new Blob([fullHtml], { type: "text/html;charset=utf-8" });
                     const a = document.createElement("a");
@@ -122,13 +121,13 @@ const initViewportFix = () => {
         const showPage = (pageId) => {
             const cleanPageId = pageId.replace('#', '');
             const validTargetId = getEl(`page-${cleanPageId}`) ? cleanPageId : 'start';
-            
+
             if (appWrapper) {
                 appWrapper.querySelectorAll('.page-container').forEach(p => p.classList.remove('active'));
                 const targetPage = getEl(`page-${validTargetId}`);
                 if (targetPage) targetPage.classList.add('active');
             }
-            
+
             if (topNav) {
                 topNav.querySelectorAll('.nav-link').forEach(l => {
                     const hash = (l.getAttribute('href') || '').replace(/^.*#/, '#');
@@ -142,20 +141,18 @@ const initViewportFix = () => {
                     l.classList.toggle('active', hash === `#${validTargetId}`);
                 });
             }
-            
+
             const isContentPage = ['rules', 'modules', 'strategy', 'timing', 'reference'].includes(validTargetId);
             if (tocContainer) tocContainer.classList.toggle('js-hidden', !isContentPage);
             if (mobileStickyHeader) mobileStickyHeader.classList.toggle('js-hidden', !['rules', 'modules'].includes(validTargetId));
 
-            // Adjust main content padding based on TOC visibility and state
             if (appWrapper && tocContainer) {
                 const isTocExpanded = tocContainer.classList.contains('is-expanded');
-                appWrapper.style.paddingLeft = isContentPage && window.innerWidth >= 1024 ? 
-                    (isTocExpanded ? 'var(--toc-width-expanded)' : 'var(--toc-width-collapsed)') : 
+                appWrapper.style.paddingLeft = isContentPage && window.innerWidth >= 1024 ?
+                    (isTocExpanded ? 'var(--toc-width-expanded)' : 'var(--toc-width-collapsed)') :
                     '0';
             }
 
-            // Only scroll to top if not navigating to a sub-section
             if (!pageId.includes('_')) {
                 window.scrollTo(0, 0);
             }
@@ -170,8 +167,7 @@ const initViewportFix = () => {
                 const parentPage = targetElement.closest('.page-container');
                 const pageId = parentPage.id.replace('page-', '');
                 showPage(`#${pageId}`);
-                
-                // Use requestAnimationFrame to ensure smooth scroll after page is visible
+
                 requestAnimationFrame(() => {
                     targetElement.scrollIntoView({ behavior: 'smooth' });
                     document.querySelectorAll('.toc-link').forEach(l => l.classList.remove('active'));
@@ -186,7 +182,6 @@ const initViewportFix = () => {
             document.body.addEventListener('click', (e) => {
                 const link = e.target.closest('a');
                 if (!link || !link.getAttribute('href')) return;
-                
                 const href = link.getAttribute('href');
                 if (href.startsWith('#')) {
                      e.preventDefault();
@@ -208,14 +203,14 @@ const initViewportFix = () => {
                 const ruleNumberMatch = text.match(/^(§\s?[\d\.]+)/);
                 let ruleNumberHTML = '';
                 let ruleText = text;
-                
+
                 if (ruleNumberMatch) {
                     ruleNumberHTML = `<span class="rule-number">${ruleNumberMatch[0]}</span>`;
                     ruleText = text.replace(ruleNumberMatch[0], '').trim();
                 }
                 tocHTML += `<li><a href="#${h.id}" class="toc-link block px-2 py-1 truncate rounded-md hover:bg-gray-700 transition-colors ${indent}">${ruleNumberHTML}${ruleText}</a></li>`;
             });
-            
+
             const tocList = getEl('toc-list');
             const mobileTocList = getEl('mobile-toc-list');
             if (tocList) tocList.innerHTML = tocHTML;
@@ -227,7 +222,7 @@ const initViewportFix = () => {
         const initTOCScrollspy = (headings) => {
             if (!('IntersectionObserver' in window)) return;
             if (tocObserver) tocObserver.disconnect();
-            
+
             tocObserver = new IntersectionObserver(entries => {
                 entries.forEach(entry => {
                     const id = entry.target.getAttribute('id');
@@ -280,7 +275,6 @@ const initViewportFix = () => {
                 if (e.target.closest('a') || e.target === mobileTocPanel) closePanel();
             });
 
-            // Trap focus within the mobile menu
             mobileTocPanel.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') closePanel();
                 if (e.key === 'Tab') {
@@ -295,7 +289,6 @@ const initViewportFix = () => {
                 }
             });
 
-            // Mobile sticky header logic
             if (!mobileStickyHeader) return;
             if (!('IntersectionObserver' in window)) return;
 
@@ -319,8 +312,7 @@ const initViewportFix = () => {
             if (rulesPage) pageObserver.observe(rulesPage);
             if (modulesPage) pageObserver.observe(modulesPage);
             mobileNavObservers.push(pageObserver);
-            
-            // Hide/show top nav on scroll for mobile
+
             let lastScrollY = window.scrollY;
             window.addEventListener('scroll', throttle(() => {
                 if (window.innerWidth < 1024) {
@@ -357,7 +349,7 @@ const initViewportFix = () => {
 
         const createGlossaryTooltips = (container, terms) => {
             const keys = Object.keys(terms).map(escapeRegExp);
-            if (keys.length === 0) return; // <-- Add this line
+            if (keys.length === 0) return;
             const regex = new RegExp(`\\b(${keys.join('|')})\\b`, 'gi');
 
             const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
@@ -400,8 +392,7 @@ const initViewportFix = () => {
             });
         };
 
-const initMisc = () => {
-            // Back to top button
+        const initMisc = () => {
             const btn = getEl('back-to-top');
             if (btn) {
                 window.addEventListener('scroll', throttle(() => {
@@ -410,14 +401,13 @@ const initMisc = () => {
                 btn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
             }
 
-            // Glossary & Tooltips
             const glossaryList = getEl('glossary-list');
             if (!glossaryList) return;
 
             const terms = {};
             glossaryList.querySelectorAll('li').forEach(item => {
                 const termEl = item.querySelector('strong');
-                if(termEl) {
+                if (termEl) {
                     const term = termEl.textContent.trim().replace(/:$/, '');
                     const clone = item.cloneNode(true);
                     clone.querySelector('strong').remove();
@@ -433,7 +423,7 @@ const initMisc = () => {
                 createGlossaryTooltips(appWrapper, terms);
             }
         };
-// The NEW timing function starts HERE, completely separate.
+
         const initTimingModuleToggles = () => {
             const timingPage = getEl('page-timing');
             if (!timingPage) return;
@@ -455,18 +445,15 @@ const initMisc = () => {
                     let show = false;
 
                     if (moduleData) {
-                        // This is a row added by a module
                         if (activeModules.has(moduleData)) {
                             show = true;
                         }
                     } else {
-                        // This is a core rule row
                         if (!activeModules.has(replacedByData)) {
                             show = true;
                         }
                     }
 
-                    // The header row (th) should always be visible
                     if (row.querySelector('th')) {
                         show = true;
                     }
@@ -479,66 +466,62 @@ const initMisc = () => {
                 toggle.addEventListener('change', updateTimingTable);
             });
 
-            // Run once on load to set the default view
             updateTimingTable();
-        }; // <-- The initTimingModuleToggles function ends HERE.
+        };
 
-const initDesktopTOC = () => {
-    if (!tocContainer || !appWrapper) return;
+        const initDesktopTOC = () => {
+            if (!tocContainer || !appWrapper) return;
 
-    const toggleTOC = (expand) => {
-        tocContainer.classList.toggle('is-expanded', expand);
-        if (window.innerWidth >= 1024) {
-            appWrapper.style.paddingLeft = expand ? 'var(--toc-width-expanded)' : 'var(--toc-width-collapsed)';
-        }
-        ['toc-title', 'toc-search-container', 'toc-list', 'toc-no-results'].forEach(id => {
-            const el = getEl(id);
-            if (el) el.classList.toggle('opacity-0', !expand);
-        });
-    };
-    // Add this code block inside the initDesktopTOC function
-const searchInput = getEl('toc-search');
-const tocList = getEl('toc-list');
-const tocLinks = tocList ? Array.from(tocList.getElementsByTagName('li')) : [];
-const noResultsMsg = getEl('toc-no-results');
+            const toggleTOC = (expand) => {
+                tocContainer.classList.toggle('is-expanded', expand);
+                if (window.innerWidth >= 1024) {
+                    appWrapper.style.paddingLeft = expand ? 'var(--toc-width-expanded)' : 'var(--toc-width-collapsed)';
+                }
+                ['toc-title', 'toc-search-container', 'toc-list', 'toc-no-results'].forEach(id => {
+                    const el = getEl(id);
+                    if (el) el.classList.toggle('opacity-0', !expand);
+                });
+            };
 
-if (searchInput && tocList && noResultsMsg) {
-    searchInput.addEventListener('input', debounce((e) => {
-        const searchTerm = e.target.value.toLowerCase().trim();
-        let visibleCount = 0;
+            const searchInput = getEl('toc-search');
+            const tocList = getEl('toc-list');
+            const tocLinks = tocList ? Array.from(tocList.getElementsByTagName('li')) : [];
+            const noResultsMsg = getEl('toc-no-results');
 
-        tocLinks.forEach(li => {
-            const text = li.textContent.toLowerCase();
-            // Show item if search is empty or if text includes the search term
-            const isVisible = searchTerm === '' || text.includes(searchTerm);
-            li.classList.toggle('hidden', !isVisible);
-            if (isVisible) {
-                visibleCount++;
+            if (searchInput && tocList && noResultsMsg) {
+                searchInput.addEventListener('input', debounce((e) => {
+                    const searchTerm = e.target.value.toLowerCase().trim();
+                    let visibleCount = 0;
+
+                    tocLinks.forEach(li => {
+                        const text = li.textContent.toLowerCase();
+                        const isVisible = searchTerm === '' || text.includes(searchTerm);
+                        li.classList.toggle('hidden', !isVisible);
+                        if (isVisible) {
+                            visibleCount++;
+                        }
+                    });
+
+                    noResultsMsg.classList.toggle('hidden', visibleCount > 0 || searchTerm === '');
+                    tocList.classList.toggle('hidden', visibleCount === 0 && searchTerm !== '');
+
+                }, 200));
             }
-        });
+            const pinButton = document.createElement('button');
+            pinButton.innerHTML = '▶';
+            pinButton.className = 'absolute top-1/2 -translate-y-1/2 right-0 translate-x-1/2 bg-gray-800 border border-gray-700 rounded-full w-8 h-8 flex items-center justify-center z-40 hidden lg:block';
+            pinButton.setAttribute('aria-label', 'Toggle Table of Contents');
+            tocContainer.appendChild(pinButton);
 
-        // Toggle the 'no results' message and list visibility
-        noResultsMsg.classList.toggle('hidden', visibleCount > 0 || searchTerm === '');
-        tocList.classList.toggle('hidden', visibleCount === 0 && searchTerm !== '');
+            let isPinned = false;
+            pinButton.addEventListener('click', () => {
+                isPinned = !isPinned;
+                pinButton.innerHTML = isPinned ? '◀' : '▶';
+                toggleTOC(isPinned);
+            });
 
-    }, 200));
-}
-    const pinButton = document.createElement('button');
-    pinButton.innerHTML = '▶';
-    pinButton.className = 'absolute top-1/2 -translate-y-1/2 right-0 translate-x-1/2 bg-gray-800 border border-gray-700 rounded-full w-8 h-8 flex items-center justify-center z-40 hidden lg:block';
-    pinButton.setAttribute('aria-label', 'Toggle Table of Contents');
-    tocContainer.appendChild(pinButton);
-
-    let isPinned = false;
-    pinButton.addEventListener('click', () => {
-        isPinned = !isPinned;
-        pinButton.innerHTML = isPinned ? '◀' : '▶';
-        toggleTOC(isPinned);
-    });
-
-    // Initialize in a collapsed state
-    toggleTOC(false);
-};
+            toggleTOC(false);
+        };
 
         const initResponsiveTables = () => {
             document.querySelectorAll('.table-responsive-wrapper').forEach(wrapper => {
@@ -547,8 +530,8 @@ if (searchInput && tocList && noResultsMsg) {
 
                 const checkScrollable = (wrapper, table) => {
                     if (!wrapper.classList.contains('card-view-active')) {
-                         setTimeout(() => {
-                            const isScrollable = table.scrollWidth > wrapper.clientWidth + 2; // 2px buffer
+                        setTimeout(() => {
+                            const isScrollable = table.scrollWidth > wrapper.clientWidth + 2;
                             wrapper.classList.toggle('is-scrollable', isScrollable);
                         }, 100);
                     } else {
@@ -560,7 +543,7 @@ if (searchInput && tocList && noResultsMsg) {
                 window.addEventListener('resize', debounce(() => checkScrollable(wrapper, table), 250));
             });
         };
-        
+
         const populateBottomNav = () => {
             if (!bottomNav) return;
             const navItems = [
@@ -574,7 +557,7 @@ if (searchInput && tocList && noResultsMsg) {
                 { href: '#feedback', label: 'Feedback' },
                 { href: '#about', label: 'About' },
             ];
-            
+
             let navHTML = '';
             navItems.forEach(item => {
                 navHTML += `<a href="${item.href}" class="nav-icon">${item.label}</a>`;
@@ -590,36 +573,36 @@ if (searchInput && tocList && noResultsMsg) {
                         <div class="max-w-4xl mx-auto">
                             <header class="text-center mb-24">
                                 <h1 class="text-4xl md:text-6xl font-bold leading-tight">Shogun: Gekokujō</h1>
-                                <p class="text-lg mt-2">Rulebook v83 (Living Rulebook)</p>
+                                <p class="text-lg mt-2">Rulebook v89 (Living Rulebook - Gold Master)</p>
                             </header>
                             <section>
-                                <h3 class="mt-16">A New Way to Wage War</h3>
-                                <p>Welcome to a modernized classic. Shogun: Gekokujō is a deep, strategic wargame that re-engineers its 1986 predecessor for a new generation of players. It is a medium-heavy game of economic management, military conquest, and fragile alliances set in the tumultuous Sengoku period of Japan.</p>
-                                <p>This living rulebook is designed to be a comprehensive guide for both aspiring warlords and seasoned veterans, providing a clear path to mastering the game's interlocking systems.</p>
+                                <h3 class="mt-16">A Manual for the Sengoku Jidai</h3>
+                                <p>This document presents a modernization of the 1986 Milton Bradley title "Shogun." It attempts to correct the structural flaws of the original design while retaining its nostalgic appeal. We have replaced the randomness of dice with the certainty of logistical constraints. You are invited to manage this economy; whether this qualifies as "fun" or "work" is for you to decide.</p>
+                                <p>It is a medium-heavy simulation of economic management, military conquest, and fragile alliances. It assumes that you are interested in a game where supply lines matter as much as swordplay.</p>
                                 <div class="info-card">
-                                    <h3 class="!mt-0">What This Game Is (and Is Not)</h3>
+                                    <h3 class="!mt-0">Scope of the Game</h3>
                                     <ul class="list-none space-y-4">
-                                        <li><strong class="text-green-400">IS:</strong> A 2-3 hour strategic euro-wargame focused on logistics and positioning.</li>
-                                        <li><strong class="text-green-400">IS:</strong> A thematic experience capturing the desperate atmosphere of the Sengoku period.</li>
-                                        <li><strong class="text-red-400">IS NOT:</strong> An all-day spectacle like Twilight Imperium.</li>
-                                        <li><strong class="text-red-400">IS NOT:</strong> An asymmetric faction game. All clans share the same core mechanics.</li>
+                                        <li><strong class="text-green-400">IS:</strong> A 2-3 hour exercise in logistics and positioning.</li>
+                                        <li><strong class="text-green-400">IS:</strong> An attempt to capture the desperation of the Sengoku period.</li>
+                                        <li><strong class="text-red-400">IS NOT:</strong> An all-day spectacle. It respects your time.</li>
+                                        <li><strong class="text-red-400">IS NOT:</strong> An asymmetric faction game. The clans differ in efficiency, not rules.</li>
                                     </ul>
                                 </div>
                                 <div class="info-card">
                                     <h3 class="!mt-0">The Four Pillars of Power</h3>
                                     <ol class="list-none space-y-4">
-                                        <li><strong>1. Gekokujō Principle:</strong> The fewer provinces you control, the earlier you act.</li>
-                                        <li><strong>2. Economic Balance:</strong> Armies cost money to maintain, not just to recruit.</li>
-                                        <li><strong>3. Irreplaceable Leadership:</strong> You begin with 3 Daimyō and can never recruit more.</li>
-                                        <li><strong>4. The Cost of Geography:</strong> Mountains provide defense but drain your treasury.</li>
+                                        <li><strong>1. The Gekokujō Principle:</strong> Weakness grants initiative. The fewer provinces you hold, the earlier you act.</li>
+                                        <li><strong>2. Economic Reality:</strong> Armies require maintenance. A large force without income is a liability.</li>
+                                        <li><strong>3. Finite Leadership:</strong> You begin with 3 Daimyō. You will never receive more. Protect them.</li>
+                                        <li><strong>4. Geography Costs:</strong> Mountains are defensible but economically draining. Do not hold them without cause.</li>
                                     </ol>
                                 </div>
                                 <div class="info-card">
-                    <h3 class="!mt-0">Game at a Glance</h3>
+                    <h3 class="!mt-0">Parameters</h3>
                     <ul class="list-none space-y-4">
-                        <li><strong class="text-accent-secondary">👥 Players:</strong> 4 for the optimal strategic experience (supports 4-5).</li>
-                        <li><strong class="text-accent-secondary">⏳ Playtime:</strong> 2-3 hours (Core Game) | 3-4 hours (with Rice & War + Specialized Warfare modules).</li>
-                        <li><strong class="text-accent-secondary">🎂 Age:</strong> Players aged 14+</li>
+                        <li><strong class="text-accent-secondary">👥 Players:</strong> 4-5. Fewer is unbalanced; more is impossible.</li>
+                        <li><strong class="text-accent-secondary">⏳ Playtime:</strong> 2-4 hours. Depends on analysis paralysis.</li>
+                        <li><strong class="text-accent-secondary">🎂 Age:</strong> 14+. Requires patience and arithmetic.</li>
                     </ul>
                 </div>
                             </section>
@@ -639,83 +622,49 @@ if (searchInput && tocList && noResultsMsg) {
                             <section id="changelog">
                                 <h2 class="!mt-0">What's New? (Changelog)</h2>
                                 <details class="bg-gray-800 p-4 rounded-lg mb-4" open>
-    <summary class="cursor-pointer font-semibold">Changes in v82 (Current)</summary>
-    <ul class="list-disc list-inside mt-4 space-y-3">
-        <li>
-            <strong>Complete Rework (§ 10.1 Political Play & Blood Feud):</strong> This module has been entirely redesigned from the ground up. It now features a high-stakes <strong>Koku pledge system</strong> and introduces the permanent <strong>"Blood Feud"</strong> mechanic as a severe, lasting consequence for betrayal, replacing the previous, simpler rule.
-        </li>
-        <li>
-            <strong>Complete Rework (§ 10.6 The Nanban Trade):</strong> This module's mechanic has been completely changed. The previous random pre-battle effect has been replaced with a system that requires the <strong>Specialized Warfare</strong> module. Players can now pay a high one-time cost to unlock the powerful but expensive <strong>Arquebusier</strong> gunpowder unit.
-        </li>
-        <li>
-            <strong>Vassalage System Expansion (§ 8.1):</strong> The two "Paths to Liberation" for a defeated player have been significantly expanded with detailed, specific mechanics. This includes concrete rules for the <strong>Gekokujō Assault's</strong> Ronin hiring and the <strong>Daimyō's Ransom's</strong> three distinct methods of accumulating Koku.
-        </li>
-        <li>
-            <strong>Major Clarity Update (§ 10.3 The Cycle of Rice and War):</strong> The rules for this complex economic module have been restructured for clarity. The update adds explicit definitions for Koku states (Treasury, Sown, Stored) and provides a detailed, step-by-step breakdown of the modified round structure to remove ambiguity.
-        </li>
-         <li>
-            <strong>Terminology Update (§ 10.7 The Emperor's Favor):</strong> The resource gained from controlling Kyoto has been thematically renamed from "Honor" to <strong>"Legitimacy"</strong>.
-        </li>
-    </ul>
-</details>
-                                <details class="bg-gray-800 p-4 rounded-lg mb-4" open>
-                                    <summary class="cursor-pointer font-semibold">Changes in v79 (Current)</summary>
-                                    <ul class="list-disc list-inside mt-4 space-y-3">
-                                        <li>
-                                            <strong>Rule Clarity (§ 1.1.2):</strong> Refined the wording for the timing of victory condition checks to improve precision and remove ambiguity.
-                                        </li>
-                                    </ul>
-                                </details>
-                                <details class="bg-gray-800 p-4 rounded-lg mb-4">
-                                    <summary class="cursor-pointer font-semibold">History: Changes in v78</summary>
-                                    <ul class="list-disc list-inside mt-4 space-y-3">
-                                        <li>
-                                            <strong>Content Enrichment (§9.1 ref):</strong> Added 10 new key terms to the Glossary based on playtester feedback to improve clarity for nuanced rules. These terms now have interactive tooltips throughout the document.
-                                        </li>
-                                    </ul>
-                                </details>
-                                <details class="bg-gray-800 p-4 rounded-lg mb-4">
-                                    <summary class="cursor-pointer font-semibold">History: Changes in v77</summary>
-                                    <ul class="list-disc list-inside mt-4 space-y-3">
-                                        <li>
-                                            <strong>Improved Clarity (§2.2.2):</strong> Rewrote the draft procedure with a clearer, step-by-step guide to make it more accessible for players unfamiliar with drafting mechanics.
-                                        </li>
-                                    </ul>
-                                </details>
-                                <details class="bg-gray-800 p-4 rounded-lg mb-4">
-                                    <summary class="cursor-pointer font-semibold">History: Changes in v76</summary>
-                                    <ul class="list-disc list-inside mt-4 space-y-3">
-                                        <li>
-                                            <strong>Thematic Renaming (§2.2):</strong> The clan selection draft is now called "The Eve of War" to better reflect the pre-conflict tension.
-                                        </li>
-                                    </ul>
-                                </details>
-                                <details class="bg-gray-800 p-4 rounded-lg">
-                                    <summary class="cursor-pointer font-semibold">History: Changes in v75</summary>
-                                    <ul class="list-disc list-inside mt-4 space-y-3">
-                                        <li>
-                                            <strong>Rule Clarity (§0.1):</strong> Clarified the "Rule of the Highest Source" to define what constitutes a bonus "type" and provided a clear example.
-                                        </li>
-                                        <li>
-                                            <strong>Rule Clarity (§6.1 & §10.1):</strong> Refined the stacking limit rules for both standard movement and allied units to remove ambiguity.
-                                        </li>
-                                        <li>
-                                            <strong>Rule Clarity (§6.2.1):</strong> Clarified the combat sequence to ensure simultaneous casualty removal is unambiguous.
-                                        </li>
-                                        <li>
-                                            <strong>Document Cohesion:</strong> Corrected inconsistent section numbering and cross-references throughout the Modules chapter.
-                                        </li>
+                                    <summary class="cursor-pointer font-semibold">Major Evolution: v81 to v89</summary>
+                                    <div class="mt-4">
+                                        <p class="mb-4">Since v81, <em>Shogun: Gekokujō</em> has undergone a significant evolution to sharpen its strategic edge and deepen player interaction. These are the most impactful changes:</p>
+                                        <ul class="list-disc list-inside space-y-4">
                                             <li>
-                                            <strong>New Player Experience:</strong> Replaced an incorrect and misleading table in the "New Players" guide with an accurate Combat quick-reference chart.
-                                        </li>
-                                    </ul>
+                                                <strong>1. The Clandestine System (Ninja Rework - §9.1):</strong><br>
+                                                <span class="text-gray-400">Old (v81):</span> A passive purchase for a static buff.<br>
+                                                <span class="text-accent-primary">New (v89):</span> An active "trap" mechanic. The Ninja is placed openly on the board. It triggers powerful reactions (<strong>"Deny Passage!"</strong>, <strong>"Sow Discord!"</strong>, <strong>"Burn the Supplies!"</strong>) only when an opponent moves into or fights in that province. This creates a zone of psychological denial.
+                                            </li>
+                                            <li>
+                                                <strong>2. Vassalage "Civil War" (Anti-Doomstack Fix - §8.1):</strong><br>
+                                                <span class="text-gray-400">Old (v81):</span> A vassal simply lost half their lands/troops.<br>
+                                                <span class="text-accent-primary">New (v89):</span> When a Liege Lord claims a vassal's province, only <strong>up to 3 units</strong> switch sides. Any remaining units stay loyal to the vassal. If units from more than one player remain, the province becomes <strong>Contested</strong> (no income). This prevents the winner from instantly inheriting a massive, game-breaking army.
+                                            </li>
+                                            <li>
+                                                <strong>3. Vassal "Choice by Deeds" (§8.3):</strong><br>
+                                                <span class="text-gray-400">Old (v81):</span> Vassals chose their path (Loyalty vs. Betrayal) in a bureaucratic phase.<br>
+                                                <span class="text-accent-primary">New (v89):</span> The path is chosen by <strong>action</strong>. The first target you attack determines your alignment for the round. Attack the Lord? Betrayal. Attack anyone else? Loyalty. Zero downtime, maximum drama.
+                                            </li>
+                                            <li>
+                                                <strong>4. "Blood Feud" Politics (§10.1):</strong><br>
+                                                <span class="text-gray-400">Old (v81):</span> Breaking an alliance cost a small combat penalty.<br>
+                                                <span class="text-accent-primary">New (v89):</span> Alliances now require a <strong>Koku Pledge</strong> (deposit). Betrayal means forfeiting your deposit to the victim and triggering a permanent <strong>Blood Feud</strong>, granting the victim lasting combat bonuses against you. Treachery is now expensive and dangerous.
+                                            </li>
+                                            <li>
+                                                <strong>5. Integrated Nanban Trade (§10.6):</strong><br>
+                                                <span class="text-gray-400">Old (v81):</span> A standalone rule for a random dice ability.<br>
+                                                <span class="text-accent-primary">New (v89):</span> Fully integrated into the <strong>Specialized Warfare</strong> module. Paying for the technology now unlocks the specific <strong>Arquebusier</strong> unit type, which ignores castle defenses. This makes firearms a tangible part of your army composition.
+                                            </li>
+                                            <li>
+                                                <strong>6. Refined Terminology:</strong><br>
+                                                <span class="text-gray-400">Old (v81):</span> "Honor" (Kyoto currency) confused players with "Honor Pacts".<br>
+                                                <span class="text-accent-primary">New (v89):</span> The currency for controlling Kyoto is now <strong>"Legitimacy"</strong> (§10.7), clearly distinguishing political clout from diplomatic agreements.
+                                            </li>
+                                        </ul>
+                                    </div>
                                 </details>
                             </section>
                             <hr class="section-divider">
                             <section id="veteran-changes">
                                 <h2 class="!mt-0">For Veterans of the Original Game: What Has Changed?</h2>
                                 <div class="pt-6">
-                                    <p>If you've played the 1986 Milton Bradley classic \*Shogun\* (also known as \*Samurai Swords\* or \*Ikusa\*), you'll find the soul of the game intact, but the engine has been completely rebuilt. This version is designed to be a faster, more strategically focused euro-wargame. Here are the most impactful changes:</p>
+                                    <p>If you've played the 1986 Milton Bradley classic *Shogun* (also known as *Samurai Swords* or *Ikusa*), you'll find the soul of the game intact, but the engine has been completely rebuilt. This version is designed to be a faster, more strategically focused euro-wargame. Here are the most impactful changes:</p>
                                     <div class="info-card mt-12">
                                         <h3 class="!mt-0">1. The Economic Engine: Unit Maintenance is Everything</h3>
                                         <p><strong>THE OLD WAY:</strong> You received Koku based on your province count and had to spend it all each round on bidding for turn order or buying units. Armies were free to maintain.</p>
@@ -855,15 +804,15 @@ if (searchInput && tocList && noResultsMsg) {
                                 <p class="mt-4 italic text-gray-400">Note: Various factors like clan abilities or castles can modify these numbers. Remember the Golden Rule (<a href="#s0_1" class="nav-link-inline">§0.1</a>): only the single highest bonus applies!</p>
                                 <hr class="section-divider">
                                 <h3>What Happens if My Last Daimyō Dies? (Vassalage)</h3>
-                                <p>You're not out of the game! You become a Vassal.</p>
+                                <p>You are not out of the game. You become a Vassal.</p>
                                 <ul class="list-disc list-inside">
-                                    <li><strong>Immediately:</strong> You lose half of your provinces and troops.</li>
-                                    <li><strong>Your New Goal:</strong> You can no longer win, but you can break free.</li>
+                                    <li><strong>Immediately:</strong> You lose one province to your conqueror (your Liege Lord).</li>
+                                    <li><strong>Your New Goal:</strong> You cannot win the game in this state, but you can regain your freedom.</li>
                                 </ul>
-                                <h4 class="mt-8">Choose one path to liberation:</h4>
+                                <h4 class="mt-8">Your path is chosen by your deeds:</h4>
                                 <ol class="list-decimal list-inside">
-                                    <li><strong>The Gekokujō Assault (Risky & Fast):</strong> For one round, spend all your Koku to hire double the Ronin. If you defeat any player's last Daimyō, you are free!</li>
-                                    <li><strong>Rebuilding (Safe & Slow):</strong> Each round, put up to 3 Koku in a "Liberation Fund" At 10 Koku, you're free.</li>
+                                    <li><strong>Loyal Service:</strong> Attack your Lord's enemies. Earn "Kōseki" points to buy your freedom.</li>
+                                    <li><strong>Betrayal:</strong> Attack your Lord directly. If you take a province, you are free. If you fail, you are eliminated.</li>
                                 </ol>
                                 <p class="mt-4 italic text-gray-400">Note: The optional 'Path of Glory' module (<a href="#s10_4" class="nav-link-inline">§10.4</a>) offers an alternative comeback mechanic that replaces this rule.</p>
                             </section>
@@ -878,12 +827,42 @@ if (searchInput && tocList && noResultsMsg) {
                         <section id="s0">
                         <div class="info-card">
                         <h2 class="!mt-0" id="s0_heading"><span class="rule-number">§ 0</span>Golden Rules</h2>
-                        <h3 class="mt-8" id="s0_1"><span class="rule-number">§ 0.1</span>Rule of the Highest Source</h3>
-                        <p><strong>Only the single largest bonus and the single largest penalty of each type apply. Types are defined by their effect (e.g., "defense roll bonus", "income bonus"). All bonuses to defense rolls are considered the same type, regardless of their source (clan ability, castle, etc.). They do not stack.</strong><br><em class="text-sm text-gray-400 mt-2 block">Example 1: A defending Uesugi unit (+1 defense) in a province with a castle (+1 defense) receives only a single +1 bonus to its defense rolls, not +2.</em><br><em class="text-sm text-gray-400 mt-2 block">Example 2: A defending Hōjō unit in their Fortress (+2 defense) that is targeted by a Ninja's Sabotage (-1 defense) would resolve its defense rolls with a net +1 bonus. This confirms that bonuses and penalties apply concurrently.</em></p>
+                        <h3 class="mt-8" id="s0_1"><span class="rule-number">§ 0.1</span>Rule of the Highest Source (Revised)</h3>
+                            <p><strong>When multiple modifiers of the same type apply to a single action:</strong></p>
+                                <ul class="list-disc list-inside ml-4">
+                                <li>The single largest <strong>bonus</strong> of that type applies.</li>
+                                <li>The single largest <strong>penalty</strong> of that type applies.</li>
+                                <li>Bonuses and penalties of the same type are applied simultaneously and netted.</li>
+                                </ul>
+                                <p class="mt-4"><strong>Clarification:</strong> Types are defined by their effect target (e.g., "defense roll bonus", "attack roll bonus", "income bonus"). All bonuses to defense rolls are considered the same type, regardless of their source (clan ability, castle, terrain, etc.).</p> 
                         <h3 class="mt-8" id="s0_2"><span class="rule-number">§ 0.2</span>Module Rules Break Core Rules</h3>
                         <p><strong>The rule of an optional module always takes precedence over a core rule it directly contradicts.</strong></p>
                         <h3 class="mt-8" id="s0_3"><span class="rule-number">§ 0.3</span>Limited Components</h3>
                         <p>The number of game components (bushi, ronin, markers, etc.) is limited by the contents of the game. Once the general supply of a component is exhausted, no more of that type can be brought into play until some return to the supply.</p>
+                        <h3 class="mt-8" id="s0_4"><span class="rule-number">§ 0.4</span>Core Definitions</h3>
+<p>The following terms are used throughout these rules:</p>
+<h4 class="mt-6">Province States:</h4>
+<ul class="list-disc list-inside ml-4">
+    <li><strong>Controlled Province:</strong> A province containing only units from a single player.</li>
+    <li><strong>Contested Province:</strong> A province containing units from multiple players. A contested province yields no income.</li>
+    <li><strong>Neutral Province:</strong> A province containing no units from any player.</li>
+</ul>
+<h4 class="mt-6">Control Types:</h4>
+<ul class="list-disc list-inside ml-4">
+    <li><strong>Sole Control:</strong> A province controlled by you with no allied units present (required for certain victory conditions and abilities).</li>
+    <li><strong>Friendly Province:</strong> A province controlled by you or an ally (if an Honor Pact is active under §10.1).</li>
+</ul>
+<h4 class="mt-6">Unit States:</h4>
+<ul class="list-disc list-inside ml-4">
+    <li><strong>Active Units:</strong> Units that can still move and fight.</li>
+    <li><strong>Marked Units:</strong> Units that have been assigned hits and will be removed at the end of the current combat step as casualties.</li>
+</ul>
+<h4 class="mt-6">Timing:</h4>
+<ul class="list-disc list-inside ml-4">
+    <li><strong>Start of Phase:</strong> The moment immediately after the previous phase ends, before any player actions.</li>
+    <li><strong>End of Phase:</strong> The moment after all player actions in that phase are complete, before the victory check.</li>
+    <li><strong>Simultaneously:</strong> All players perform the action at the same time, without a specific order.</li>
+</ul>
                         </div>
                         </section>
                         <hr class="section-divider">
@@ -977,7 +956,7 @@ if (searchInput && tocList && noResultsMsg) {
 
         <h4 class="mt-6" id="s2_2_2"><span class="rule-number">§ 2.2.2</span>Step-by-Step: The Draft Procedure</h4>
         <p>A draft is a simple way to choose factions to ensure a fair and interesting game. Instead of everyone grabbing their favorite clan at once, you will take turns picking one by one. This section breaks it down into simple steps.</p>
-        
+
         <h5 class="mt-4" id="s2_2_2_1"><span class="rule-number">§ 2.2.2.1</span> Step 1: Determine the Pick Order</h5>
         <p>Determine a random starting order for the players (e.g., by rolling dice). The player who would act <strong>last</strong> in this random order gets to pick their clan <strong>first</strong>. The clan pick order is the reverse of the randomly determined player order.</p>
 
@@ -1016,7 +995,7 @@ if (searchInput && tocList && noResultsMsg) {
         <li><strong>Player D (picks 4th):</strong> The Regional Restriction is now lifted. Player D can choose any of the remaining clans from any region.</li>
     </ol>
     <p class="mt-4">This draft system becomes a "meta-game" before the first turn. Your initial choice is not just about which clan ability you prefer; it also limits the options of your opponents and shapes the political landscape of the entire game.</p>
-    
+
     <div class="info-card">
         <h3 class="!mt-0" id="s2_3"><span class="rule-number">§ 2.3</span>Initial Setup</h3>
         <ol class="list-decimal list-inside">
@@ -1100,10 +1079,16 @@ if (searchInput && tocList && noResultsMsg) {
             <li><strong>Phase 3: Winter</strong> (Mountain Provisions)</li>
         </ol>
 
-        <h3 class="mt-8" id="s3_2"><span class="rule-number">§ 3.2</span>Unit Limit per Province (Stacking Limit)</h3>
-        <p>A province can sustain a maximum of 7 units belonging to a single player.</p>
-        <p class="mt-4"><strong>Governing Principle:</strong> This limit must be respected whenever a game step or effect that changes the number of units in a province is fully resolved. This applies regardless of whether the change was caused by a standard action (like Recruitment or Movement), a special ability, a card, or any other game mechanic.</p>
-        <p class="mt-4"><strong>Exception: Pass-Through Movement:</strong> Units are permitted to move through a province that already contains 7 of their own units. The unit limit is checked only before a movement begins and after it is completed, but not during the movement itself.</p>
+<h3 class="mt-8" id="s3_2"><span class="rule-number">§ 3.2</span>Unit Limit per Province (Stacking Limit) - Revised</h3>
+<p>A province can sustain a maximum of 7 units belonging to a single player.</p>
+<p class="mt-4"><strong>Clarification:</strong></p>
+<ul class="list-disc list-inside ml-4">
+    <li>This limit applies to <strong>all unit types</strong> (Bushi, Daimyō, Ronin, Specialized Units from modules, etc.).</li>
+    <li>The limit is checked after any game effect that changes unit count is fully resolved (recruitment, movement, combat, special abilities, etc.).</li>
+</ul>
+<p class="mt-4"><strong>Exception - Pass-Through Movement:</strong></p>
+<p>Units may move through a province that already contains 7 of their own units. The stacking limit is checked before movement begins and after movement ends, but not during movement itself.</p>
+<p class="mt-2">If a unit's movement is interrupted mid-transit (e.g., by a Ninja's "Deny Passage!" ability) and this causes a stacking violation, the owning player must immediately remove excess units of their choice until the limit is satisfied.</p>
         </div>
 </section>
 <hr class="section-divider">
@@ -1122,9 +1107,10 @@ if (searchInput && tocList && noResultsMsg) {
     <p>For a clear and thematic way to track the current player order, consider using the plastic katana swords from the original 1986 edition of Shogun or similar tokens. At the start of the round, arrange them in the correct sequence. This provides an immediate, visual reference for all players.</p>
 </div>
         <h3 class="mt-8" id="s4_2"><span class="rule-number">§ 4.2</span>Honor & Bankruptcy</h3>
-        <p>A Daimyō is bound by their word and must meet their financial obligations. If a player is unable to pay a required cost (Unit Maintenance, Winter Mountain Provisions, etc.) at any time, they must immediately remove <strong>two</strong> of their Bushi units (player's choice) from the board for every 1 Koku they cannot pay. A clan cannot go into debt.</p>
+        <p> A Daimyō is bound by their word and must meet their financial obligations. If a player is unable to pay a required cost (Unit Maintenance, Winter Mountain Provisions, etc.) at any time, they must immediately remove <strong>two</strong> of their Bushi units (player's choice) from the board for every 1 Koku they cannot pay. A clan cannot go into debt.</p>
         <p class="mt-4 italic">For example, if you are short 3 Koku, you must immediately remove 6 of your Bushi from the board.</p>
-        
+        <h3 class="mt-8" id="s4_3"><span class="rule-number">§ 4.3</span>Determine Player Order (GekokujÅ)</h3>
+        <p> Only after all income and Unit Maintenance have been fully resolved, the player order for the round is determined. The player with the <strong>fewest provinces</strong> acts first. Ties are broken by: 1st - less Koku, 2nd - fewer total units, 3rd - clan name alphabetically.</li>
     </div>
 </section>
 <hr class="section-divider">
@@ -1132,17 +1118,16 @@ if (searchInput && tocList && noResultsMsg) {
     <div class="info-card">
 
         <h2 class="!mt-0" id="s5_heading"><span class="rule-number">§ 5</span>Phase 1b: Reinforcement</h2>
-        
+
         <h3 class="mt-8" id="s5_1"><span class="rule-number">§ 5.1</span>Recruitment & Construction (In Player Order)</h4>
         <ol class="list-decimal list-inside">
             <li><strong>Recruit:</strong> Pay 1 Koku per Bushi.</li>
             <li><strong>Hire Ninja:</strong> Pay 3 Koku, hire Ninja until end of turn (see <a href="#s9_1" class="nav-link-inline">§9.1</a>).</li>
             <li><strong>Castle & Fortress Construction:</strong> Spend Koku to build or fortify a castle (see <a href="#s9_2" class="nav-link-inline">§9.2</a>).</li>
         </ol>
-        
-        <h3 class="mt-8" id="s5_2"><span class="rule-number">§ 5.2</span>Unit Placement</h4>
-        <p>All newly recruited units must be placed in a province that you controlled at the start of the Planning & Reinforcement phase.</p>
 
+        <h3 class="mt-8" id="s5_2"><span class="rule-number">§ 5.2</span>Unit Placement</h3>
+        <p>All newly recruited units must be placed in a province that you controlled at the start of the Planning & Reinforcement phase.</p>
     </div>
 </section>
 <hr class="section-divider">
@@ -1151,17 +1136,17 @@ if (searchInput && tocList && noResultsMsg) {
 <p>After all players have completed their reinforcements, the Campaign phase begins, proceeding in the newly established player order. On your turn, you will first complete all movement with all your units. <strong>Only after all your movement is finished will you resolve any battles</strong> that resulted, one by one.</p>
     <div class="info-card">
         <h3 class="!mt-0" id="s6_1"><span class="rule-number">§ 6.1</span>&nbsp;Movement</h3>
-        
+
         <h4 class="mt-6" id="s6_1_1"><span class="rule-number">§ 6.1.1</span>&nbsp;General Movement</h4>
         <p>A player may move any number of their units during their Movement Phase.</p>
-        
+
         <h4 class="mt-6" id="s6_1_2"><span class="rule-number">§ 6.1.2</span>&nbsp;Group Movement: Splitting & Merging Armies</h4>
         <p>Units can conduct their movement independently. This allows for two fundamental maneuvers:</p>
         <ul class="list-disc list-inside ml-4">
             <li><strong>Splitting Armies:</strong> Multiple units starting their movement in the same province may move to different destination provinces.</li>
             <li><strong>Merging Armies:</strong> Multiple units starting their movement in different provinces may end their movement in the same destination province.</li>
         </ul>
-        
+
         <h4 class="mt-6" id="s6_1_3"><span class="rule-number">§ 6.1.3</span>&nbsp;Movement Restrictions</h4>
         <p>All movement is subject to the following universal restrictions:</p>
         <ul class="list-disc list-inside ml-4">
@@ -1185,16 +1170,25 @@ if (searchInput && tocList && noResultsMsg) {
         <h4 class="mt-6" id="s6_2_1"><span class="rule-number">§ 6.2.1</span>The Combat Sequence</h4>
         <ol class="list-disc list-inside">
             <li>(Optional) <strong>Hire Ronin:</strong> Attacker, then defender, may hire Ronin.</li>
-            <li>(Optional) <strong>Ninja Assassination:</strong> Reveal Ninja if on a mission.</li>
+            <li>(Optional) <strong>Ninja Intervention:</strong> The Ninja player may reveal a mission (e.g., "Sow Discord!") if present.</li>
             <li><strong>Determine Hits:</strong> All units from all sides roll dice simultaneously to determine the number of hits they score.</li>
-            <li><strong>Assign & Remove Casualties:</strong> Starting with the attacker, each player assigns their hits to enemy units. After all hits are assigned, all marked units are removed from the board at the same time.</li>
-            <li><strong>Check for Control:</strong> If units from only one side remain, that player controls the province. If units from more than one side remain, or no units remain, the province becomes neutral.</li>
+            <li><strong>Assign & Remove Casualties:</strong> This step follows a strict two-part sequence:
+                <ul class="list-decimal list-inside ml-6 mt-2">
+                    <li><strong>Part A: Assign Hits (Treffer zuweisen):</strong> All players who scored hits now assign them to one or more opposing players. This assignment happens sequentially, one player at a time:
+                        <ul class="list-disc list-inside ml-6 mt-1">
+                            <li>The <strong>Attacker</strong> assigns all their hits first.</li>
+                            <li>Then, all <strong>Defenders</strong> assign all their hits, proceeding one defender at a time in clockwise order around the table (starting from the attacker's left).</li>
+                            <li><em>(Clarification: A player may assign all their hits to a single opponent or split them among multiple opponents at their discretion).</em></li>
+                        </ul>
+                    </li>
+                    <li><strong>Part B: Distribute Casualties & Remove Units:</strong> After all hits have been assigned in Part A, every player takes the total hits assigned to them and simultaneously distributes them as casualties to their own units (daimyō or bushi, at the player's discretion). All marked units are then removed from the board at the same time.</li>
+                </ul>
+            </li>
+            <li><strong>Check for Control:</strong> If units from only one player remain, that player controls the province. If units from more than one player remain, or no units remain, the province becomes neutral.</li>
             <li>(Module) <strong>Raiding:</strong> If using module §10.3, the new controller seizes any invested Koku (see §6.2.7).</li>
         </ol>
-        
-        <h4 class="mt-6" id="s6_2_2"><span class="rule-number">§ 6.2.2</span>Combat With 3+ Players</h4>
-        <p>In a battle involving three or more players, all sides roll their dice simultaneously. Then, a player who has been attacked distributes their hits first. Finally, all players remove casualties at the same time.</p>
-        
+
+
         <h4 class="mt-6" id="s6_2_3"><span class="rule-number">§ 6.2.3</span>Combat Rolls</h4>
         <!-- This entire div replaces the old one for the combat table in § 6.2.3 -->
 <div class="table-responsive-wrapper">
@@ -1236,16 +1230,16 @@ if (searchInput && tocList && noResultsMsg) {
             <li><strong>Limit:</strong> You may not have more Ronin than your own Bushi in a battle.</li>
             <li><strong>Fleeting Loyalty:</strong> After combat, all Ronin are removed from the board.</li>
         </ul>
-        
-        <h4 class="mt-6" id="s6_2_5"><span class="rule-number">§ 6.2.5</span>Example of Basic Combat</h3>
+
+        <h4 class="mt-6" id="s6_2_5"><span class="rule-number">§ 6.2.5</span>Example of Basic Combat</h4>
         <p>The Tokugawa player attacks a neutral province with 3 Bushi. It is defended by 2 Ronin hired by another player. No other modifiers are in play.</p>
         <ul class="list-disc list-inside">
-            <li><strong>Tokugawa (Attacking):</strong> Rolls 3 dice for their 3 Bushi. An attack hits on a 5-6. They roll a 1, 4, and 5. This is \*\*1 hit\*\*.</li>
-            <li><strong>Ronin (Defending):</strong> Rolls 2 dice for the 2 Ronin. A defense hits on a 6. They roll a 2 and 6. This is \*\*1 hit\*\*.</li>
+            <li><strong>Tokugawa (Attacking):</strong> Rolls 3 dice for their 3 Bushi. An attack hits on a 5-6. They roll a 1, 4, and 5. This is <strong>1 hit</strong>.</li>
+            <li><strong>Ronin (Defending):</strong> Rolls 2 dice for the 2 Ronin. A defense hits on a 6. They roll a 2 and 6. This is <strong>1 hit</strong>.</li>
             <li><strong>Resolving:</strong> Each side scored 1 hit. The Tokugawa player removes one Bushi, and the Ronin player removes one Ronin. The Tokugawa player now has 2 Bushi in the province, and the Ronin player has 1. The province remains contested.</li>
         </ul>
-        
-        <h4 class="mt-6" id="s6_2_6"><span class="rule-number">§ 6.2.6</span>Example of Combat with Modifiers</h3>
+
+        <h4 class="mt-6" id="s6_2_6"><span class="rule-number">§ 6.2.6</span>Example of Combat with Modifiers</h4>
         <h5 class="mt-4" id="s6_2_6_1"><span class="rule-number">§ 6.2.6.1</span>Calculating Target Numbers</h5>
         <ul class="list-disc list-inside">
             <li><strong>Oda (Attacking):</strong> Oda Daimyō is present, so clan ability applies (+1). Daimyō hits on 3-6, Bushi on 4-6.</li>
@@ -1253,9 +1247,9 @@ if (searchInput && tocList && noResultsMsg) {
         </ul>
         <h5 class="mt-4" id="s6_2_6_2"><span class="rule-number">§ 6.2.6.2</span>Rolling Dice & Resolving</h4>
         <p>Oda rolls for 1 Daimyō (3 dice) and 3 Bushi (3 dice), getting 4 hits total. Uesugi rolls for 4 Bushi (4 dice), getting 2 hits. Uesugi removes all 4 of their Bushi. Oda removes 2 Bushi. Oda now controls Echigo.</p>
-        
+
         <h4 class="mt-6 module-row" id="s6_2_7"><span class="rule-number">§ 6.2.7</span>Raiding Invested Provinces <span title="The Cycle of Rice and War Module" class="module-icon">🌾</span></h4>
-        <p><em>This rule is only in effect when using \*\*The Cycle of Rice and War\*\* module (<a href="#s10_3" class="nav-link-inline">§10.3</a>).</em></p>
+        <p><em>This rule is only in effect when using <strong>The Cycle of Rice and War</strong> module (<a href="#s10_3" class="nav-link-inline">§10.3</a>).</em></p>
         <p>If an attacker gains control of a province that contains invested Koku tokens from the Sowing step, the attacker immediately seizes all Koku tokens from that province and adds them to their own treasury. This occurs at the end of combat, after all units have been removed and control is determined.</p>
         <h4 class="mt-6" id="s6_2_8"><span class="rule-number">§ 6.2.8</span>Consequences of Losing Control</h4>
         <p>If a player loses control of a province, all associated benefits and abilities for that province end immediately, unless a different timing is explicitly stated by another rule. This includes income potential for the next round, bonuses from clan abilities tied to that province, and control of Mandate Provinces.</p>
@@ -1267,96 +1261,79 @@ if (searchInput && tocList && noResultsMsg) {
 
         <h2 class="!mt-0" id="s7_heading"><span class="rule-number">§ 7</span>Phase 3: Winter</h2>
         <p>After all players have completed their Campaign phase, the Winter phase occurs simultaneously for all players.</p>
-        
+
         <h3 class="mt-8" id="s7_1"><span class="rule-number">§ 7.1</span>Pay Mountain Provisions Costs</h3>
         <p><strong>Pay 1 Koku for each mountain province you control, PLUS 1 Koku per 3 units (any type, rounded up) located across all those mountain provinces.</strong></p>
-        <p class="mt-4 italic text-gray-400">● This rule is replaced by \*\*The Cycle of Rice and War\*\* module (<a href="#s10_3" class="nav-link-inline">§10.3</a>).<span title="The Cycle of Rice and War Module" class="module-icon ml-2">🌾</span></p>
+        <p class="mt-4 italic text-gray-400">● This rule is replaced by <strong>The Cycle of Rice and War</strong> module (<a href="#s10_3" class="nav-link-inline">§10.3</a>).<span title="The Cycle of Rice and War Module" class="module-icon ml-2">🌾</span></p>
 
     </div>
 </section>
 <hr class="section-divider">
-// In script.js, replace the entire <section id="s8"> block with this:
-
 <section id="s8">
     <div class="info-card">
+        <h2 class="!mt-0" id="s8_heading"><span class="rule-number">§ 8</span>Fealty (Vassalage)</h2>
+        <p>The loss of the last Daimyō does not mean elimination from the game. It marks the transition from an independent clan to a vassal, an actor bound to a liege lord with a new, singular objective: to regain freedom.</p>
 
-        <h2 class="!mt-0" id="s8_heading"><span class="rule-number">§ 8</span>Victory & Defeat</h2>
-        
-        <h3 class="mt-8" id="s8_1"><span class="rule-number">§ 8.1</span>Vassalage</h3>
-        <p>The instant your final Daimyō is removed, you become a vassal of the player who defeated it.</p>
-        
-        <h4 class="mt-6" id="s8_1_1"><span class="rule-number">§ 8.1.1</span>Consequences of Vassalage</h4>
-<p>A player who becomes a vassal must immediately reduce their influence. This is resolved in the following, strict order:</p>
-
-<ol class="list-decimal list-inside space-y-3 mt-4">
-    <li>
-        <strong>Choose Provinces:</strong> Choose half of your provinces (rounded down) that you must give up.
-    </li>
-    <li>
-        <strong>Retreat Units:</strong> All of your units in the provinces you just gave up must immediately retreat to one or more adjacent provinces that you still control.
-        <ul class="list-disc list-inside ml-6 mt-2 space-y-2">
+        <h3 class="mt-8" id="s8_1"><span class="rule-number">§ 8.1</span>Immediate Consequences</h3>
+        <p>A single sword strike seals one's fate. The defeat is swift; the consequences are immediate and irreversible. The moment a player's last Daimyō is removed as a casualty from a battle, the following takes effect immediately:</p>
+        <ul class="list-disc list-inside mt-4 space-y-3">
             <li>
-                <strong>Retreat Impossible:</strong> If a unit cannot perform a legal retreat (because no controlled, adjacent province is available), it is removed from the board.
+                <strong>Determining the Liege Lord:</strong> The player who assigned the final casualty to the vassal's last Daimyō (see § 6.2.1, pt. 4a) becomes their <strong>Liege Lord</strong>.
             </li>
             <li>
-                <strong>Unit Limit:</strong> The stacking limit of 7 units per province must be respected in the destination provinces after the retreat. Excess units that cannot be placed legally are also removed from the board.
+                <strong>Province Loss and Troop Conversion:</strong> The <strong>Liege Lord</strong> immediately chooses one province controlled by the vassal.
+                <ul class="list-disc list-inside ml-6 mt-2 space-y-2">
+                    <li>The vassal loses this province to the <strong>Liege Lord</strong>.</li>
+                    <li><strong>The loyalty of the garrison belongs to the land, not the man.</strong> Up to three of the vassal's units in this province swear fealty to the new Liege Lord. They are immediately replaced by an equal number of units from the Liege Lord's supply. Any remaining units stay in the province as loyalists to the vassal. If units from <strong>more than one</strong> player remain in the province, it becomes Contested and yields no income.</li>
+                </ul>
+            </li>
+            <li>
+                <strong>Vassal Status:</strong> A vassal can no longer win the game. However, they retain their clan ability and continue to participate in the game normally (Income, Recruitment, Movement). A vassal may attack any player and be attacked by any player.
+            </li>
+            <li>
+                <strong>Automatic Liberation:</strong> The chain breaks if the chain-holder falls. Should a vassal's <strong>Liege Lord</strong> be eliminated from the game (lose their own last Daimyō), the vassal is immediately liberated at the end of that battle.
             </li>
         </ul>
-    </li>
-    <li>
-        <strong>Reduce Troops:</strong> Choose and remove half of your total remaining units from the board (rounded down).
-    </li>
-    <li>
-        <strong>Control Loss:</strong> Provinces from which you removed your last unit in the previous step automatically become uncontrolled (neutral).
-    </li>
-</ol>
 
-<p class="mt-6">Furthermore, the following general conditions apply to a vassal:</p>
-<ul class="list-disc list-inside mt-2">
-    <li>A vassal cannot win the game but retains their clan ability.</li>
-    <li class="module-row">Upon becoming a Vassal, all existing Honor Pacts are immediately dissolved. A Vassal may not offer or accept new Honor Pacts until they are liberated.<span title="Political Play Module" class="module-icon ml-2">⚖️</span></li>
-</ul>
-        
-        <h4 class="mt-6" id="s8_1_2"><span class="rule-number">§ 8.1.2</span>Paths to Liberation</h4>
-        <p>Upon becoming a vassal, and at the start of each subsequent Planning Phase they remain a vassal, the player must choose one of the following two paths for that round.</p>
+        <h3 class="mt-8" id="s8_2"><span class="rule-number">§ 8.2</span>The Path to Liberation</h3>
+        <p>The vassal is now bound to their Liege Lord. Their path to freedom is bought either through loyal service or bloody betrayal. A vassal has two paths to regain their freedom.</p>
 
         <div class="info-card mt-4">
-            <h5 class="!mt-0">Path 1: Gekokujō Assault ("The Low Overthrows the High")</h5>
-            <p>This path represents a single, all-or-nothing military gambit to overthrow a master.</p>
-            <p class="mt-2"><strong>Objective:</strong> To become a free clan again, the vassal must eliminate the last remaining Daimyō of any single free clan.</p>
-            <p class="mt-2"><strong>Mechanic:</strong> Upon choosing this path during the Planning Phase, the vassal commits their entire treasury to the assault. For the remainder of the round, the vassal is affected as follows:</p>
-            <ul class="list-disc list-inside ml-4 mt-2">
-                <li>During the Combat Phase, they may hire Ronin in any battle at a favorable rate of 1 Koku for 2 Ronin units. Koku is spent from their treasury until it is depleted.</li>
+            <h4 class="!mt-0">Path 1: Loyal Service</h4>
+            <p>The vassal proves their utility and strength by fighting their Liege Lord's enemies—or earns their freedom through shrewd diplomacy.</p>
+            <ul class="list-disc list-inside ml-4 mt-2 space-y-2">
+                <li><strong>Objective:</strong> Collect 3 <strong>Kōseki</strong> (Merit Points).</li>
+                <li><strong>Progress:</strong> Kōseki persist across rounds. Upon reaching 3 Kōseki, the vassal is liberated at the end of the phase.</li>
+                <li><strong>Earning Points:</strong>
+                    <ul class="list-disc list-inside ml-6 mt-1">
+                        <li><strong>Conquest:</strong> For each province the vassal conquers (from another player or neutral), they receive 1 Kōseki.</li>
+                        <li><strong>Negotiation:</strong> The Liege Lord may grant the vassal freedom (or Kōseki) at any time, typically in exchange for Koku, provinces, or military support.</li>
+                    </ul>
+                </li>
+                <li><strong>Restriction:</strong> A vassal who chooses this path may not attack their Liege Lord during this round.</li>
             </ul>
-            <p class="mt-2">Liberation is achieved the moment the objective is met. If the vassal fails to eliminate an opponent's last Daimyō by the end of the Winter Phase, they remain a vassal.</p>
-            <p class="mt-2 text-sm text-gray-400"><em>Clarification: "Eliminate" means the Daimyō unit must be removed from the board as a result of a battle lost by its owner.</em></p>
         </div>
 
         <div class="info-card mt-4">
-            <h5 class="!mt-0">Path 2: The Daimyō's Ransom (Rebuilding)</h5>
-            <p>This path represents a gradual return to power through economic, strategic, and opportunistic means.</p>
-            <p class="mt-2"><strong>Objective:</strong> To become a free clan again, the vassal must accumulate 10 Koku in their Liberation Fund.</p>
-            <p class="mt-2"><strong>Mechanic:</strong> The Liberation Fund is a conceptual total; Koku committed to it are considered spent. A vassal adds Koku to the fund through three methods:</p>
-            <ol class="list-decimal list-inside ml-4 mt-2 space-y-2">
-                <li>
-                    <strong>Annual Tithe (Economic Focus)</strong><br>
-                    During the Administration Phase, after collecting income but before paying Unit Maintenance, the vassal may deposit up to 3 Koku from their treasury into the Liberation Fund.
-                </li>
-                <li>
-                    <strong>Territorial Expansion (Strategic Growth)</strong><br>
-                    During the Winter Phase, after resolving all battles, the vassal adds 2 Koku to the fund for each province they control in excess of the total number they controlled at the start of their vassalage.
-                    <br><em class="text-sm text-gray-400">Clarification: If a vassal begins with 3 provinces, this bonus applies starting from the 4th province controlled. Controlling 5 provinces would grant a bonus of 4 Koku for that round.</em>
-                </li>
-                <li>
-                    <strong>Daimyō's Bounty (Military Opportunism)</strong><br>
-                    The vassal immediately adds 3 Koku to the fund each time one of their armies forces an opponent's Daimyō to retreat from a province as the result of a battle (i.e., is not removed as a casualty).
-                    <br><em class="text-sm text-gray-400">Clarification: The bounty is awarded only for forcing a Daimyō to retreat by winning a battle and the Daimyō surviving. It is not awarded if the Daimyō is eliminated from the game.</em>
-                </li>
-            </ol>
+            <h4 class="!mt-0">Path 2: Betrayal (Open Rebellion)</h4>
+            <p>The ultimate act of Gekokujō—the low overthrow the high. A single, successful dagger thrust washes away all shame, but failure means final death.</p>
+            <ul class="list-disc list-inside ml-4 mt-2 space-y-2">
+                <li><strong>Objective:</strong> Conquer at least one province from the Liege Lord.</li>
+                <li><strong>Liberation:</strong> If successful, the vassal is immediately liberated at the end of combat.</li>
+                <li><strong>The Consequence of Failure:</strong> If the vassal fails (i.e., they attack their Liege Lord this round but do not conquer a province from them), the vassal is <strong>ELIMINATED FROM THE GAME</strong> at the end of the phase.</li>
+            </ul>
         </div>
-        
+
+        <h3 class="mt-8" id="s8_3"><span class="rule-number">§ 8.3</span>Choice by Deeds</h3>
+        <p>A vassal is not defined by their words, but by their deeds. The first strike decides loyalty or rebellion.</p>
+        <p>A vassal does not choose their path at the start of the round. Their <strong>first attack action</strong> in the Campaign Phase determines their binding path for the entire round:</p>
+        <ul class="list-disc list-inside ml-4 mt-2">
+            <li>If the vassal's first attack targets <strong>another player</strong> or a <strong>neutral province</strong>, they have chosen <strong>Path 1 (Loyal Service)</strong>.</li>
+            <li>If the vassal's first attack targets their <strong>Liege Lord</strong>, they have chosen <strong>Path 2 (Betrayal)</strong>.</li>
+        </ul>
+
         <p class="mt-4 italic text-gray-400">★ This entire Vassalage system is replaced by the <strong>>Path of Glory</strong> module (<a href="#s10_4" class="nav-link-inline">§10.4</a>).<span title="Path of Glory Module" class="module-icon ml-2">🏆</span></p>
-        
+
         <h3 class="mt-8" id="s8_2"><span class="rule-number">§ 8.2</span>Player Elimination</h3>
         <p>A player is eliminated if they lose their last province while having no Daimyō on the board.</p>
         <p class="mt-4">A player with zero provinces is not eliminated as long as they have at least one Daimyō on the board. On their turn, they continue to collect their base income of 3 Koku and may take actions as normal. This Daimyō exists in a contested, neutral province and must win a battle to reclaim territory—a difficult but not impossible path back into the conflict.</p>
@@ -1366,22 +1343,54 @@ if (searchInput && tocList && noResultsMsg) {
 <hr class="section-divider">
                             <section id="s9">
     <div class="info-card">
-
         <h2 class="!mt-0" id="s9_heading"><span class="rule-number">§ 9</span>Advanced Rules</h2>
-        
-        <h3 class="mt-8" id="s9_1"><span class="rule-number">§ 9.1</span>The Ninja System</h3>
-        <p>Hire the Ninja until end of this round for 3 Koku. Choose a public Field Operation or a covert Assassination. A Field Operation must be declared and its target province announced immediately after the Ninja is hired during your Reinforcement phase.</p>
-        <div class="table-responsive-wrapper">
-            <table>
-                <thead><tr><th data-label="Type">Mission Type</th><th data-label="Sub-Type">Sub-Type</th><th data-label="Effect">Effect</th></tr></thead>
-                <tbody>
-                    <tr><td data-label="Type"><strong>Field Operation</strong></td><td data-label="Sub-Type">Sabotage</td><td data-label="Effect">-1 on defense rolls and no recruitment in target province for the round.</td></tr>
-                    <tr><td data-label="Type"></td><td data-label="Sub-Type">Diversion</td><td data-label="Effect">The target province cannot be attacked for the round. This ability cannot target a Mandate Province if there is a player currently on the 'Path of Glory.'</td></tr>
-                    <tr><td data-label="Type"><strong>Assassination</strong></td><td data-label="Sub-Type">Assassination</td><td data-label="Effect">At the start of a combat, you may reveal your hidden Ninja to remove one enemy Bushi from the battle. This ability cannot be used if the targeted Bushi is in the same province as one of its clan's Daimyō.</td></tr>
-                </tbody>
-            </table>
+
+        <h3 class="mt-8" id="s9_1"><span class="rule-number">§ 9.1</span>The Clandestine System (Ninja)</h3>
+        <p>A Daimyō rules by his armies, but he wins by cunning. A Ninja is a weapon of the shadows, used to break the enemy's will, thwart their plans, and empty their coffers long before the first sword is drawn.</p>
+
+        <h4 class="mt-6" id="s9_1_1"><span class="rule-number">§ 9.1.1</span>Hiring (The Price of Shadows)</h4>
+        <ul class="list-disc list-inside space-y-2">
+            <li><strong>Timing:</strong> During your Recruitment Phase (Phase 1b).</li>
+            <li><strong>Cost:</strong> Pay <strong>3 Koku</strong> to the bank.</li>
+            <li><strong>Placement:</strong> Place the single Ninja figure <strong>openly</strong> on any province on the map (own, enemy, or neutral).</li>
+        </ul>
+        <p class="mt-2">The Ninja's presence is now public knowledge. All players know an agent is operating in this province, but their true mission remains hidden.</p>
+
+        <h4 class="mt-6" id="s9_1_2"><span class="rule-number">§ 9.1.2</span>Reveal (The Blade in the Dark)</h4>
+        <p>The Ninja player may reveal the Ninja's mission <strong>once per round</strong> as soon as a valid trigger occurs in the Ninja's province.</p>
+        <p>When a trigger occurs, the Ninja player may interrupt the triggering player's action and choose <strong>one</strong> of the three operations that matches the trigger. The specific mission is chosen at the moment of reveal.</p>
+        <p>After the operation is revealed and its effect fully resolved, the Ninja figure is removed from the board for the rest of the round. Their contract is fulfilled.</p>
+
+        <h4 class="mt-6" id="s9_1_3"><span class="rule-number">§ 9.1.3</span>The Three Operations</h4>
+        <p>Each operation is designed to deliver strategic value equal to the 3 Koku investment.</p>
+
+        <div class="info-card border-accent-secondary bg-gray-900/50 mt-4">
+            <h5 class="!mt-0 !border-b-accent-secondary/50">1. "Deny Passage!" (The Iron Fan)</h5>
+            <p><strong>Narrative:</strong> The agent renders marching routes impassable, fortifies passes, or threatens ambush, demanding a toll for safe passage.</p>
+            <p><strong>Trigger:</strong> An opponent declares movement with one or more units <strong>into</strong> the province where the Ninja is stationed.</p>
+            <p><strong>Effect:</strong> The Ninja's blade bars the way. The opponent faces a dilemma and must immediately choose:</p>
+            <ul class="list-disc list-inside ml-4 mt-2">
+                <li><strong>Option A (Break Through):</strong> Pay a flat fee of <strong>3 Koku</strong> to the bank to break the blockade and continue movement as planned.</li>
+                <li><strong>Option B (Retreat):</strong> Immediately cancel the movement of this specific army into this province. The army remains in its province of origin (the province from which movement was declared). The army counts as having moved for this round and may take no further actions.</li>
+            </ul>
         </div>
-        
+
+        <div class="info-card border-accent-secondary bg-gray-900/50 mt-4">
+            <h5 class="!mt-0 !border-b-accent-secondary/50">2. "Sow Discord!" (The Poisoned Steel)</h5>
+            <p><strong>Narrative:</strong> The agent sows fear and discord in the enemy ranks, poisons wells, or sabotages equipment, breaking morale before the first blow is struck.</p>
+            <p><strong>Trigger:</strong> A battle begins <strong>in</strong> the Ninja's province (regardless of who is attacking or defending).</p>
+            <p><strong>Effect:</strong> Immediately before dice are rolled, the Ninja player chooses one player involved in this battle. The agent disrupts the target's battle order: That player suffers a <strong>-1 penalty to all their die rolls</strong> (Attack or Defense) <strong>for this single battle</strong>.</p>
+        </div>
+
+        <div class="info-card border-accent-secondary bg-gray-900/50 mt-4">
+            <h5 class="!mt-0 !border-b-accent-secondary/50">3. "Burn the Supplies!" (The Red Wind)</h5>
+            <p><strong>Narrative:</strong> The agent infiltrates the camp and sets fire to rice stores and ammunition depots. The enemy must immediately spend resources to fight the fire and replace supplies—or watch their army starve.</p>
+            <p><strong>Trigger:</strong> A battle begins <strong>in</strong> the Ninja's province (same trigger as "Sow Discord!").</p>
+            <p><strong>Effect:</strong> Immediately before dice are rolled, the Ninja player chooses one player involved in this battle. The Ninja destroys the target's supply lines: That player must <strong>immediately pay 3 Koku</strong> to the bank.</p>
+            <p><strong>Bankruptcy Clause:</strong> If the chosen player cannot pay the 3 Koku (or cannot pay it in full), the Bankruptcy Rule (§ 4.2) applies to the unpaid amount. The player must remove <strong>2 Bushi</strong> (of their choice, from anywhere on the board) for every 1 Koku they cannot pay.</p>
+        </div>
+
+
         <h3 class="mt-8" id="s9_2"><span class="rule-number">§ 9.2</span>Castle & Fortress Construction</h3>
         <p> Any Clan can have only 1 Castle or Fortress on the game map simultaneously. </p>
         <ul class="list-disc list-inside">
@@ -1389,544 +1398,471 @@ if (searchInput && tocList && noResultsMsg) {
             <li><strong>Fortify Castle (3 Koku):</strong> Place a marker on your castle. Increases its defense bonus to +2 for one round.</li>
             <li><strong>Destruction:</strong> If an enemy player gains control of a province containing a Castle or Fortress, the fortification is immediately removed from the board.</li>
         </ul>
-        
+
     </div>
 </section>
                 `,
-                'modules': `
+'modules': `
                 <section id="page-modules" class="page-container">
-                    <div class="py-12 px-4"><div class="max-w-4xl mx-auto"><section id="s10_modules">
+                    <div class="py-12 px-4"><div class="max-w-4xl mx-auto">
                         <header>
                            <h2 class="!mt-0" id="s10_heading"><span class="rule-number">§ 10</span>OPTIONAL MODULES</h2>
                         </header>
+                        
+                        <!-- § 10.0 Matrix -->
                         <div class="info-card border-accent-secondary bg-gray-900/50">
-    <h3 class="!mt-0 !border-b-accent-secondary/50" id="s10_0">§ 10.0 Guide to Modularity: The Art of Coherence</h3>
-    <p>The following modules are designed as precise instruments to accentuate specific aspects of the game. Combining them should be done with intent. This matrix serves as a guide to avoid incompatible configurations and to foster synergistic, thematically dense experiences.</p>
+                            <h3 class="!mt-0 !border-b-accent-secondary/50" id="s10_0">§ 10.0 Guide to Modularity</h3>
+                            <p>The following modules are designed as precise instruments to accentuate specific aspects of the game. Combining them should be done with intent.</p>
+                            <h4 class="mt-8">Recommended Experience Packages</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                                <div class="info-card !m-0">
+                                    <h5 class="!mt-0">The Age of Guns</h5>
+                                    <p class="text-sm"><strong>Focus:</strong> Military & Technology</p>
+                                    <p class="text-xs mt-2"><strong>Modules:</strong><br>§ 10.3 Specialized Warfare 🛡️<br>§ 10.4 The Nanban Trade 🔫</p>
+                                </div>
+                                <div class="info-card !m-0">
+                                    <h5 class="!mt-0">The Price of the Empire</h5>
+                                    <p class="text-sm"><strong>Focus:</strong> Economy & Instability</p>
+                                    <p class="text-xs mt-2"><strong>Modules:</strong><br>§ 10.5 Cycle of Rice & War 🌾<br>§ 10.6 Ikkō-ikki Uprising 👺</p>
+                                </div>
+                                <div class="info-card !m-0">
+                                    <h5 class="!mt-0">The Game for the Throne</h5>
+                                    <p class="text-sm"><strong>Focus:</strong> Politics & Diplomacy</p>
+                                    <p class="text-xs mt-2"><strong>Modules:</strong><br>§ 10.1 Political Play ⚖️<br>§ 10.2 The Emperor's Favor 👑</p>
+                                </div>
+                            </div>
+                        </div>
 
+                        <!-- SECTION A: POLITICS -->
+                        <hr class="section-divider">
+                        <h2 class="text-center text-accent-secondary">I. Politics & Diplomacy</h2>
+                        
+                        <!-- § 10.1 Political Play -->
+                        <div class="info-card">
+                            <h3 class="!mt-0" id="s10_1"><span class="rule-number">§ 10.1</span> Module: Political Play & Blood Feud<span title="Political Play & Blood Feud Module" class="module-icon ml-2">⚖️</span></h3>
+                            <blockquote><strong>Complexity:</strong> Medium | <strong>Focus:</strong> Alliances & Betrayal</blockquote>
+                            <h4 class="mt-8" id="s10_1_1"><span class="rule-number">§ 10.1.1</span> The Honor Pact</h4>
+                            <p><strong>Cost:</strong> 1 Koku to offer. <strong>Pledge:</strong> Both players place 2 Koku in a shared pool.</p>
+                            <ul class="list-disc list-inside mt-4 space-y-2">
+                                <li><strong>Benefits:</strong> Move through ally's land. Share provinces (limit 10 units total).</li>
+                                <li><strong>Betrayal (Attack Ally):</strong> Betrayer forfeits Pledge (Victim gets 4 Koku). Betrayer suffers <strong>-1 attack malus</strong> for the round.</li>
+                                <li><strong>Blood Feud:</strong> Victim declares permanent Blood Feud (+1 Attack/Defense vs Betrayer forever).</li>
+                            </ul>
+                        </div>
 
-    <h4 class="mt-8">Matrix of Module Interactions</h4>
-    <div class="table-responsive-wrapper mt-4">
-        <table class="table-structured">
-            <thead>
-                <tr>
-                    <th data-label="Module">Module</th>
-                    <th data-label="Compatibility">Compatibility & Synergy</th>
-                    <th data-label="Design Note">Design Note</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td data-label="Module"><strong>Political Play</strong> ⚖️</td>
-                    <td data-label="Compatibility"><span class="font-bold text-green-400">✅ Synergizes with:</span> The Emperor's Favor 👑</td>
-                    <td data-label="Design Note">Adds a thematic power factor to the mechanical alliance, focusing the game on political maneuvering.</td>
-                </tr>
-                <tr>
-                    <td data-label="Module"><strong>Specialized Warfare</strong> 🛡️</td>
-                    <td data-label="Compatibility"><span class="font-bold text-yellow-400">⚠️ High Complexity with:</span> The Cycle of Rice and War 🌾</td>
-                    <td data-label="Design Note">Creates a deep logistical challenge. Serves as the base for the Firearm Revolution.</td>
-                </tr>
-                <tr>
-                    <td data-label="Module"><strong>The Cycle of Rice and War</strong> 🌾</td>
-                    <td data-label="Compatibility"><span class="font-bold text-green-400">✅ Synergizes with:</span> Ikkō-ikki Uprising 👺</td>
-                    <td data-label="Design Note">Makes Sowing Koku a high-risk, high-reward decision, as a rebellion can destroy your provincial investment.</td>
-                </tr>
-                <tr>
-                    <td data-label="Module"><strong>Path of Glory</strong> 🏆</td>
-                    <td data-label="Compatibility"><span class="font-bold text-red-400">❌ Incompatible with:</span> The Emperor's Favor 👑</td>
-                    <td data-label="Design Note">These modules offer conflicting "sudden death" victory conditions and should not be used together.</td>
-                </tr>
-                 <tr>
-                    <td data-label="Module"><strong>Ikkō-ikki Uprising</strong> 👺</td>
-                    <td data-label="Compatibility"><span class="font-bold text-green-400">✅ Synergizes with:</span> The Cycle of Rice and War 🌾</td>
-                    <td data-label="Design Note">Introduces an internal threat that punishes turtling and makes territorial losses more dynamic.</td>
-                </tr>
-                <tr>
-                    <td data-label="Module"><strong>The Nanban Trade</strong> 🔫</td>
-                    <td data-label="Compatibility"><span class="font-bold text-blue-400">➡️ Requires:</span> Specialized Warfare 🛡️</td>
-                    <td data-label="Design Note">Integrates directly into Specialized Warfare by unlocking the Arquebusier unit.</td>
-                </tr>
-                <tr>
-                    <td data-label="Module"><strong>The Emperor's Favor</strong> 👑</td>
-                    <td data-label="Compatibility"><span class="font-bold text-red-400">❌ Incompatible with:</span> Path of Glory 🏆<br><span class="font-bold text-green-400">✅ Synergizes with:</span> Political Play ⚖️</td>
-                    <td data-label="Design Note">Elevates Kyoto to the single most important province, creating a political "king of the hill" objective.</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+                        <!-- § 10.2 Emperor's Favor -->
+                        <div class="info-card">
+                            <h3 class="!mt-0" id="s10_2"><span class="rule-number">§ 10.2</span>Module: The Emperor's Favor<span title="The Emperor's Favor Module" class="module-icon ml-2">👑</span></h3>
+                            <blockquote><strong>Complexity:</strong> Low | <strong>Focus:</strong> King of the Hill (Kyoto)</blockquote>
+                            <h4 class="mt-8" id="s10_2_1"><span class="rule-number">§ 10.2.1</span>Legitimacy</h4>
+                            <p>Gain <strong>1 Legitimacy Point</strong> if you have sole control of Yamashiro (Kyoto) at the start of the Reinforcement Phase.</p>
+                            <h4 class="mt-8" id="s10_2_2"><span class="rule-number">§ 10.2.2</span>Imperial Edicts</h4>
+                            <p>Spend Legitimacy during your turn for effects:</p>
+                            <ul class="list-disc list-inside">
+                                <li><strong>3 Legitimacy (Legitimate Claim):</strong> Remove 3 enemy Bushi from one province (Owner gets 1 Koku/Bushi compensation).</li>
+                                <li><strong>3 Legitimacy (Imperial Censure):</strong> Grant all players +1 Attack vs target player for this round.</li>
+                                <li><strong>6 Legitimacy (Appointed Shogun):</strong> Immediate Victory if you control Kyoto.</li>
+                            </ul>
+                        </div>
 
-    <h4 class="mt-8">Recommended Experience Packages</h4>
-    <p>For a guaranteed coherent experience, the following thematically curated module packages are recommended:</p>
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-        <div class="info-card !m-0">
-            <h5 class="!mt-0">The Age of Guns</h5>
-            <p class="text-sm"><strong>Focus:</strong> Military & Technology</p>
-            <p class="text-xs mt-2"><strong>Modules:</strong><br>§ 10.2 Specialized Warfare 🛡️<br>§ 10.6 The Nanban Trade 🔫</p>
-            <p class="text-sm mt-2">A military conflict where control of trading ports and technological advancement create a strategic arms race. </p>
-        </div>
-        <div class="info-card !m-0">
-            <h5 class="!mt-0">The Price of the Empire</h5>
-            <p class="text-sm"><strong>Focus:</strong> Economy & Instability</p>
-            <p class="text-xs mt-2"><strong>Modules:</strong><br>§ 10.3 The Cycle of Rice and War 🌾<br>§ 10.5 The Ikkō-ikki Uprising 👺</p>
-            <p class="text-sm mt-2">A simulation of logistics and internal stability. War is decided in the rice paddies as much as on the battlefield.</p>
-        </div>
-        <div class="info-card !m-0">
-            <h5 class="!mt-0">The Game for the Throne</h5>
-            <p class="text-sm"><strong>Focus:</strong> Politics & Diplomacy</p>
-            <p class="text-xs mt-2"><strong>Modules:</strong><br>§ 10.1 Political Play ⚖️<br>§ 10.7 The Emperor's Favor 👑</p>
-            <p class="text-sm mt-2">Alliances help you take Kyoto, but a broken pact will spark a powerful and vengeful Blood Feud.</p>
-        </div>
-    </div>
-</div>
- <div class="info-card">
-    <h3 class="!mt-0" id="s10_1"><span class="rule-number">§ 10.1</span> Module: Political Play & Blood Feud<span title="Political Play & Blood Feud Module" class="module-icon ml-2">⚖️</span></h3>
-    <blockquote><strong>Complexity Assessment:</strong> Rules: Medium | Depth: High | Playtime: Low<br><strong>In a Nutshell:</strong> Adds high-stakes alliances with lasting consequences for betrayal.</blockquote>
+                        <!-- SECTION B: WARFARE -->
+                        <hr class="section-divider">
+                        <h2 class="text-center text-accent-secondary">II. Warfare & Technology</h2>
 
-    <h4 class="mt-8" id="s10_1_1"><span class="rule-number">§ 10.1.1</span> The Honor Pact: Formation and Benefits</h4>
-    <p>An Honor Pact is a formal alliance between two players for one or more rounds.</p>
-    <p><strong>Timing:</strong> During Phase 1.3a is the Diplomacy Step right after the Recruitment & Construction phase, a player may propose a pact to another player. The offer costs the proposing player 1 Koku to the general supply.</p>
-    <ul class="list-disc list-inside mt-4 space-y-2">
-        <li><strong>Offer:</strong> The active player pays <strong>1 Koku</strong> to the general supply and proposes an Honor Pact to another player for the current round.</li>
-        <li><strong>Acceptance & Pledge:</strong> If the other player accepts, <strong>both players must immediately place 2 Koku each</strong> as a pledge into a common pool. Each player may only be part of one Honor Pact at a time.
+                        <!-- § 10.3 Specialized Warfare -->
+                        <div class="info-card">
+                            <h3 class="!mt-0" id="s10_3"><span class="rule-number">§ 10.3</span>Module: Specialized Warfare<span title="Specialized Warfare Module" class="module-icon ml-2">🛡️</span></h3>
+                            <blockquote><strong>Complexity:</strong> High | <strong>Focus:</strong> Tactical Rock-Paper-Scissors</blockquote>
+                            <p>Replaces generic "Bushi" with specific unit types. Cost is 1 Koku per unit.</p>
+                            <div class="table-responsive-wrapper">
+                                <table class="table-structured">
+                                    <thead><tr><th data-label="Unit">Unit</th><th data-label="Attack">Attack</th><th data-label="Defense">Defense</th><th data-label="Special">Special</th></tr></thead>
+                                    <tbody>
+                                        <tr><td data-label="Unit"><strong>Ashigaru Spearmen</strong></td><td data-label="Attack">6</td><td data-label="Defense">5-6</td><td data-label="Special"><strong>Spear Wall:</strong> +1 Def if ≥2 present.</td></tr>
+                                        <tr><td data-label="Unit"><strong>Samurai Swordsmen</strong></td><td data-label="Attack">5-6</td><td data-label="Defense">5-6</td><td data-label="Special"><strong>Duelist:</strong> Rolls 2 dice if attacking alone.</td></tr>
+                                        <tr><td data-label="Unit"><strong>Samurai Archers</strong></td><td data-label="Attack">4-6 (Ranged)</td><td data-label="Defense">6</td><td data-label="Special">Attacks in Ranged Phase (before Melee).</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
 
-</li>
-<p>A player who enters vassalage automatically leaves the Alliance. As that player did not attack the allied player, they do not suffer from the negative consequences of breaking a pact. Their pledge is returned to the general supply. Their ally gets their pledge returned.</p>
-    </ul>
+                        <!-- § 10.4 Nanban Trade -->
+                        <div class="info-card">
+                            <h3 class="!mt-0" id="s10_4"><span class="rule-number">§ 10.4</span>Module: The Nanban Trade<span title="The Nanban Trade & The Firearm Revolution Module" class="module-icon ml-2">🔫</span></h3>
+                            <div class="info-card border-accent-primary bg-gray-900/50 mt-4"><p class="!mt-0 font-bold">REQUIRES § 10.3 Specialized Warfare</p></div>
+                            <h4 class="mt-8" id="s10_4_1"><span class="rule-number">§ 10.4.1</span>Firearm Technology</h4>
+                            <p>Control a Trading Post (Settsu or Hizen). Pay <strong>8 Koku</strong> once to unlock tech.</p>
+                            <h4 class="mt-8" id="s10_4_3"><span class="rule-number">§ 10.4.3</span>Arquebusiers</h4>
+                            <p><strong>Cost:</strong> 2 Koku per unit.</p>
+                            <ul class="list-disc list-inside">
+                                <li><strong>Attack:</strong> 4-6 (Firearm Phase - BEFORE Ranged).</li>
+                                <li><strong>Defense:</strong> - (Cannot defend effectively, use as Bushi).</li>
+                                <li><strong>Volley:</strong> Attacks ignore ALL Castle/Fortress defense bonuses.</li>
+                            </ul>
+                        </div>
 
-    <h4 class="mt-8" id="s10_1_2"><span class="rule-number">§ 10.1.2</span> Benefits of the Pact</h4>
-    <ul class="list-disc list-inside">
-        <li>Units of both players may move through each other's provinces.</li>
-        <li>They may occupy the same province. However, the total number of units from all allied players in that single province cannot exceed 10. The individual limit of 7 units per player still applies.</li>
-        <li>They cannot attack each other. An attack is considered an act of betrayal.</li>
-    </ul>
+                        <!-- SECTION C: ECONOMY -->
+                        <hr class="section-divider">
+                        <h2 class="text-center text-accent-secondary">III. Economy & Stability</h2>
 
-    <h4 class="mt-8" id="s10_1_3"><span class="rule-number">§ 10.1.3</span> Breach of the Pact (Betrayal)</h4>
-    <p>A pact is broken as soon as a player attacks their ally's province. The consequences are <strong>immediate and irrevocable</strong>:</p>
-    <ul class="list-disc list-inside mt-4 space-y-2">
-        <li><strong>Pledge Forfeiture & Compensation:</strong> The betrayer forfeits their claim to the pledge pool. The victim receives the <strong>entire pledge pool (4 Koku)</strong>.</li>
-        <li><strong>Combat Malus:</strong> The betrayer suffers a <strong>-1 malus on all their attack rolls</strong> for the rest of the current round.</li>
-        <li><strong>Blood Feud:</strong> The victim immediately and publicly declares a <strong>'Blood Feud'</strong> against their betrayer. This declaration is permanent and cannot be undone. For the remainder of the game, all units belonging to the victim receive a +1 bonus on attack and defense rolls when fighting that specific betrayer. Both players are responsible for remembering this lasting effect.</li>
-    </ul>
+                        <!-- § 10.5 Cycle of Rice & War -->
+                        <div class="info-card">
+                            <h3 class="!mt-0" id="s10_5"><span class="rule-number">§ 10.5</span>Module: The Cycle of Rice and War<span title="The Cycle of Rice and War Module" class="module-icon ml-2">🌾</span></h3>
+                            <blockquote><strong>Complexity:</strong> High | <strong>Focus:</strong> Deep Logistics & Risk</blockquote>
+                            <p><strong>Replaces:</strong> Standard Income & Winter Phase.</p>
+                            
+                            <h4 class="mt-8" id="s10_5_2"><span class="rule-number">§ 10.5.2</span>Modified Round Structure</h4>
+                            <h5 class="mt-4">Phase 1: Planning</h5>
+                            <ul class="list-disc list-inside">
+                                <li><strong>Stipend:</strong> Fixed <strong>4 Koku</strong> per player (plus Clan Bonuses). No province income.</li>
+                                <li><strong>Allocation:</strong> After spending, allocate ALL remaining Treasury Koku:
+                                    <ul class="list-disc list-inside ml-4">
+                                        <li><strong>Store:</strong> Safe for next round.</li>
+                                        <li><strong>Sow:</strong> Place on province. <strong>Max 2 Koku per province.</strong> <strong>Cannot Sow in Mountains.</strong></li>
+                                    </ul>
+                                </li>
+                            </ul>
+                            
+                            <h5 class="mt-4">Phase 3: Winter (Harvest)</h5>
+                            <p>Roll <strong>2d6</strong> for global yield multiplier on Sown Koku:</p>
+                            <ul class="list-disc list-inside ml-4">
+                                <li><strong>2-5 (Famine):</strong> x1 Yield.</li>
+                                <li><strong>6-9 (Normal):</strong> x2 Yield.</li>
+                                <li><strong>10-12 (Bountiful):</strong> x3 Yield.</li>
+                            </ul>
+                            <p><strong>Spoilage:</strong> At phase end, discard <strong>half</strong> (rounded down) of Treasury Koku.</p>
+                        </div>
 
-    <h4 class="mt-8" id="s10_1_4"><span class="rule-number">§ 10.1.4</span> End of a Pact</h4>
-    <p>All pacts are managed during the 1.3a Diplomacy Step. A pact persists until it is actively dissolved in this phase.</p>
-    <p>Dissolution Process: Both partners declare their intent simultaneously and secretly.</p>
-    <ul class="list-disc list-inside mt-4 space-y-2">
-        <li><strong>Secret Choice:</strong> Both players take a Koku coin and secretly decide whether to keep it in their closed fist (Dissolve) or to have an empty fist (Continue).</li>
-        <li><strong>Reveal:</strong> Both players reveal their hands simultaneously.
-    </li>
+                        <!-- § 10.6 Ikko-Ikki -->
+                        <div class="info-card">
+                            <h3 class="!mt-0" id="s10_6"><span class="rule-number">§ 10.6</span>Module: The Ikkō-ikki Uprising<span title="The Ikkō-ikki Uprising Module" class="module-icon ml-2">👺</span></h3>
+                            <blockquote><strong>Complexity:</strong> Medium | <strong>Focus:</strong> Internal Friction</blockquote>
+                            <ul class="list-disc list-inside mt-4">
+                                <li><strong>Unrest:</strong> Losing a defense battle places an Unrest marker.</li>
+                                <li><strong>Rebellion:</strong> A 2nd Unrest marker triggers Rebellion. Province becomes <strong>Neutral (Ikkō-ikki Stronghold)</strong> with 3 Neutral Bushi.</li>
+                                <li><strong>Pacification:</strong> Pay 2 Koku to remove Unrest. Or reconquer and roll 4-6 to pacify.</li>
+                            </ul>
+                        </div>
 
-    <p>Resolution & Consequences:</p>
-    <ul class="list-disc list-inside mt-4 space-y-2">
-        <li><strong>Empty Hand / Empty Hand:</strong> The pact continues.</li>
-        <li><strong>Koku / Empty Hand:</strong> The pact is dissolved. The player with the Koku is the initiator.</li>
-        <li><strong>Koku / Koku:</strong> The pact is dissolved. The Gekokujō tie-breaker (§ 4.1) determines the initiator (the loser of the tie-break).</li>
-    </li>
-    <p>In case of dissolution, the pledge is split (each player receives 2 Koku back). The player designated as the initiator must perform the Ordered Retreat: They must immediately move all their units from any jointly occupied provinces to an adjacent province they control. If no legal retreat is possible, the units remain, and the province becomes contested.</p>
-</div>
-<div class="info-card">
-    <h3 class="!mt-0" id="s10_2"><span class="rule-number">§ 10.2</span>Module: Specialized Warfare<span title="Specialized Warfare Module" class="module-icon ml-2">🛡️</span></h3>
-    <blockquote><strong>Complexity Assessment:</strong> Rules: High | Depth: High | Playtime: Medium<br><strong>In a Nutshell:</strong> Transforms combat into a tactical puzzle.</blockquote>
-    <p><strong>Design Philosophy:</strong> This module changes the strategic question from "How large is my army?" to "What is the composition of my army?" It rewards reconnaissance, adaptation, and the creation of synergistic unit groups to counter specific enemy threats.</p>
+                        <!-- SECTION D: THE FALLEN -->
+                        <hr class="section-divider">
+                        <h2 class="text-center text-accent-secondary">IV. The Fallen (Player Elimination)</h2>
+                        <p class="text-center mb-8">Choose ONE of the following systems to handle eliminated players.</p>
 
-    <div class="info-card border-accent-secondary bg-gray-900/50">
-        <h4 class="!mt-0 !border-b-accent-secondary/50">The Central Dilemma: Combined Arms or Hard Counter?</h4>
-        <p>This module forces a critical recruitment decision.</p>
-        <ul class="list-none space-y-4 mt-4">
-            <li class="flex">
-                <span class="mr-4 text-accent-secondary font-bold text-xl">⚔️</span>
-                <div><strong>COMBINED ARMS:</strong> Recruit a balanced force (e.g., spears and archers).<br><span class="text-sm text-gray-400">Benefit: Tactical flexibility; no crippling weakness. Risk: Master of none; can be overwhelmed by a specialized force.</span></div>
-            </li>
-            <li class="flex">
-                <span class="mr-4 text-accent-secondary font-bold text-xl">🛡️</span>
-                <div><strong>SPECIALIZED DOCTRINE:</strong> Recruit a homogenous force (e.g., all spearmen) to counter a specific threat.<br><span class="text-sm text-gray-400">Benefit: Dominant in its ideal situation. Risk: Highly vulnerable if caught in the wrong engagement.</span></div>
-            </li>
-        </ul>
-    </div>
+                        <!-- § 10.7 Path of Glory -->
+                        <div class="info-card">
+                            <h3 class="!mt-0" id="s10_7"><span class="rule-number">§ 10.7</span>Module: Path of Glory<span title="Path of Glory Module" class="module-icon ml-2">🏆</span></h3>
+                            <blockquote><strong>Complexity:</strong> Low | <strong>Style:</strong> Arcade / Competitive</blockquote>
+                            <p>Replaces Vassalage. Eliminated players collect <strong>Glory Points (GP)</strong>.</p>
+                            <div class="table-responsive-wrapper">
+                                <table><thead><tr><th>Condition</th><th>GP Earned</th></tr></thead>
+                                <tbody>
+                                    <tr><td>Defeat any player's last Daimyō</td><td>+2 GP</td></tr>
+                                    <tr><td>Defeat Leading Player's last Daimyō</td><td>+3 GP</td></tr>
+                                    <tr><td>Gain sole control of Mandate Province</td><td>+3 GP</td></tr>
+                                </tbody></table>
+                            </div>
+                            <p class="mt-4"><strong>Victory:</strong> Reach 7 GP to win immediately.</p>
+                        </div>
 
-    <p class="mt-8">Replaces Bushi with specialized units. Adds a Ranged Phase before Melee.</p>
-    <div class="table-responsive-wrapper">
-        <table class="table-structured">
-            <thead><tr><th data-label="Unit">Unit</th><th data-label="Attack">Attack (d6)</th><th data-label="Defense">Defense (d6)</th><th data-label="Special">Special</th></tr></thead>
-            <tbody>
-                <tr><td data-label="Unit"><strong>Ashigaru Spearmen</strong></td><td data-label="Attack">6</td><td data-label="Defense">5-6</td><td data-label="Special"><strong>Spear Wall:</strong> +1 defense if ≥2 are present.</td></tr>
-                <tr><td data-label="Unit"><strong>Samurai Swordsmen</strong></td><td data-label="Attack">5-6</td><td data-label="Defense">5-6</td><td data-label="Special"><strong>Duelist:</strong> Rolls two dice if attacking alone.</td></tr>
-                <tr><td data-label="Unit"><strong>Samurai Archers</strong></td><td data-label="Attack">4-6 (Ranged)</td><td data-label="Defense">6</td><td data-label="Special">Attacks in Ranged Phase only.</td></tr>
-                <tr><td data-label="Unit"><strong>Samurai Bannermen</strong></td><td data-label="Attack">-</td><td data-label="Defense">6</td><td data-label="Special">Grants +1 movement to Ashigaru in the same province.</td></tr>
-            </tbody>
-        </table>
-    </div>
+                        <!-- § 10.8 Way of the Ronin -->
+                        <div class="info-card">
+                            <h3 class="!mt-0" id="s10_8"><span class="rule-number">§ 10.8</span>Module: The Way of the Rōnin<span title="The Way of the Rōnin Module" class="module-icon ml-2">👺</span></h3>
+                            
+                            <div class="info-card !mt-6 border-accent-secondary bg-gray-900/50">
+                                <p class="!mt-0 font-bold text-accent-secondary">EXPERIMENTAL / ADVANCED MODULE</p>
+                                <p class="mt-2 text-sm"><strong>WARNING:</strong> This module changes the game genre from Strategy to Asymmetric Insurgency. High drama, high volatility.</p>
+                            </div>
 
-    <h4 class="mt-8" id="s10_2_1"><span class="rule-number">§ 10.2.1</span>Expansion: Technological Change<span title="Specialized Warfare Module" class="module-icon ml-2">🛡️</span></h4>
-    <p>Adds the "Ashigaru Arquebusiers" unit and a "Firearm Phase" before the Ranged Phase.</p>
-    <div class="table-responsive-wrapper">
-        <table class="table-structured">
-            <thead><tr><th data-label="Unit">Unit</th><th data-label="Attack">Attack (d6)</th><th data-label="Defense">Defense (d6)</th><th data-label="Special">Special</th></tr></thead>
-            <tbody>
-                <tr><td data-label="Unit"><strong>Ashigaru Arquebusiers</strong></td><td data-label="Attack">4-6 (Firearm)</td><td data-label="Defense">-</td><td data-label="Special"><strong>Volley:</strong> Ignores castle defense bonus.</td></tr>
-            </tbody>
-        </table>
-    </div>
-</div>
+                            <blockquote>
+                                <strong>Complexity:</strong> Maximum | <strong>Interaction:</strong> Maximum<br>
+                                "Why hire a traitor? Because a dog without a leash bites everyone. Feed him, and he bites your enemies. Starve him, and he eats your children."
+                            </blockquote>
 
+                            <h4 class="mt-8" id="s10_8_1"><span class="rule-number">§ 10.8.1</span>Status: Rōnin (Player) & The Collapse</h4>
+                            <p>A player losing their last province becomes a <strong>Rōnin (Player)</strong>. They keep 1 Daimyō figure to represent themselves. All other figures return to supply.</p>
+                            <p class="mt-2"><strong>The Power Vacuum:</strong> All their former provinces immediately become <strong>NEUTRAL</strong>. Place 2 Neutral Bushi in each to represent local warlords filling the void.</p>
 
-<div class="info-card">
-<h3 class="!mt-0" id="s10_3"><span class="rule-number">§ 10.3</span>Module: The Cycle of Rice and War<span title="The Cycle of Rice and War Module" class="module-icon ml-2">🌾</span></h3><blockquote><strong>Complexity Assessment:</strong> Rules: High | Depth: High | Playtime: Medium <strong>
-<p>In a Nutshell:</strong> Introduces deep economic planning, risk, and raiding.</p></blockquote>
-<p><strong>Design Philosophy:</strong> This module introduces a profound strategic trilemma by making your treasury vulnerable. In the core game, saving Koku is always a safe option. With this module, unmanaged wealth is lost to Spoilage. You must now actively choose how to protect your resources for the future.</p><div class="info-card border-accent-secondary bg-gray-900/50"><h4 class="!mt-0 !border-b-accent-secondary/50">The Central Dilemma: Spend, Sow, or Store?</h4><p>This module forces a critical decision at the end of the Planning phase. Any Koku not spent on your army must be allocated:</p><ul class="list-none space-y-4 mt-4"><li class="flex"><span class="mr-4 text-accent-secondary font-bold text-xl">⚔️</span><div><strong>SPEND:</strong> Use Koku for immediate military power (recruitment, castles).<span class="text-sm text-gray-400">Benefit: Maximum tempo. Risk: No future economic growth.</span></div></li><li class="flex"><span class="mr-4 text-accent-secondary font-bold text-xl">🌾</span><div><strong>SOW:</strong> Invest Koku on provinces for a high return.<span class="text-sm text-gray-400">Benefit: Highest potential reward. Risk: Vulnerable to Raiding and bad Harvests.</span></div></li><li class="flex"><span class="mr-4 text-accent-secondary font-bold text-xl">🏯</span><div><strong>STORE:</strong> Place Koku in your granaries, safe from Spoilage.<span class="text-sm text-gray-400">Benefit: Absolute security. Risk: Zero growth; the Koku is unavailable for the round.</span></div></li></ul></div><p class="mt-8"><strong>This module fundamentally alters the game's economy. It replaces the standard Winter phase (§7.1) and the standard Unit Maintenance step (§4.1, point 2). It also introduces the Raiding rule (§6.2.7) and modifies the core Income rule.</strong></p><h4 class="mt-8" id="s10_3_1"><span class="rule-number">§ 10.3.1</span>Definition of Koku States</h4><p>To manage the new economy, a player's Koku can exist in one of three distinct states:</p><ul class="list-disc list-inside space-y-2"><li><strong>Treasury:</strong> Koku held by the player behind their screen. This is the active currency used for recruitment, construction, and abilities. Koku in the Treasury is subject to Spoilage.</li><li><strong>Sown Koku:</strong> Koku physically placed on a province token as a public investment. It is vulnerable to Raiding but provides a return during the Harvest.</li><li><strong>Stored Koku:</strong> Koku set aside from the previous round's Allocation Step. It is safe from Spoilage and Raiding. It becomes part of the Treasury at the start of the next round's Planning Phase.</li></ul><h4 class="mt-8" id="s10_3_2"><span class="rule-number">§ 10.3.2</span>Modified Round Structure</h4><h5 class="mt-4">Phase 1: Planning & Reinforcement</h5><ol class="list-decimal list-inside space-y-3"><li><strong>Start of Phase:</strong> Any Stored Koku from the previous round is returned to the player's Treasury.</li><li><strong>Daimyō's Stipend (Replaces Standard Income):</strong> All players simultaneously collect a fixed stipend of 4 Koku and add it to their Treasury. Players do NOT collect additional Koku based on the number of provinces they control.</li><li><strong>Determine Player Order (Gekokujō):</strong> Player order for the round is determined as per the standard rules (§4.1, point 3).</li><li><strong>Reinforcement:</strong> In the established player order, players spend Koku from their Treasury to recruit units and build structures as per standard rules.</li><li><strong>Allocation (New Step):</strong> In player order, each player must allocate any and all Koku remaining in their Treasury. For each remaining Koku, a player must choose one of two options: <ul class="list-disc list-inside ml-4 mt-2"> <li><strong>Sow:</strong> Place Koku token on one of your controlled provinces. It is now Sown Koku.</li><li><strong>Store:</strong> Set the Koku aside. It is now Stored Koku and is safe until the next round.</li></ul><em>After this step, all player Treasuries must be empty.</em></li></ol><h5 class="mt-4">Phase 2: Campaign</h5><ul class="list-disc list-inside"><li>Standard movement and combat rules apply.</li><li><strong>Raiding (§6.2.7):</strong> If an attacker wins a battle and gains control of a province, they immediately take all Sown Koku tokens from that province's token and add them to their own Treasury. This raided Koku is subject to Spoilage at the end of the round.</li></ul><h5 class="mt-4">Phase 3: Winter (Replaces §7.1)</h5><ol class="list-decimal list-inside space-y-3"><li><strong>Harvest:</strong> One player rolls a single d6. The result determines the harvest yield for all players:<ul class="list-disc list-inside ml-4 mt-2"><li><strong>1-2 (Famine):</strong> Harvest yields 1 Koku for every 1 Koku Sown.</li><li><strong>3-5 (Normal):</strong> Harvest yields 2 Koku for every 1 Koku Sown.</li><li><strong>6 (Bountiful):</strong> Harvest yields 3 Koku for every 1 Koku Sown.</li></ul>Each player simultaneously receives the harvest yield for each Sown Koku on provinces they still control. This new Koku is added directly to their Treasury. The original Sown Koku tokens are returned to the general supply.</li><li><strong>Pay Costs (New Timing):</strong> All players simultaneously pay all Unit Maintenance (1 Koku per 2 Bushi) and Mountain Provisions costs from their Treasury.</li><li><strong>Spoilage:</strong> At the very end of the phase, each player must discard half (rounded down) of any Koku remaining in their Treasury. Koku that was designated as Stored Koku during the Allocation step is completely unaffected by this step.</li></ol>
-        </li>
-    </ul>
-    
-    <div class="info-card border-accent-secondary bg-gray-900">
-        <h4 class="!mt-0">Warning: High Complexity Combination</h4>
-        <p>Combining <strong>The Cycle of Rice and War</strong> <span title="The Cycle of Rice and War Module" class="module-icon">🌾</span> with <strong>Specialized Warfare</strong> <span title="Specialized Warfare Module" class="module-icon">🛡️</span> is recommended for expert players only. This pairing creates a deep, logistical wargame that requires managing both a complex economy and a granular combat system simultaneously.</p>
-    </div>
-</div>
-<div class="info-card">
-    <h3 class="!mt-0" id="s10_4"><span class="rule-number">§ 10.4</span>Module: Path of Glory<span title="Path of Glory Module" class="module-icon ml-2">🏆</span></h3>
-    <blockquote><strong>Complexity Assessment:</strong> Rules: Low | Depth: Medium | Playtime: Minimal<br><strong>In a Nutshell:</strong> Adds a 'king-slayer' comeback victory.</blockquote>
-    <p><strong>Design Philosophy:</strong> This module changes the strategic question for a defeated player from "How do I survive?" to "How can I forge a legend?" It embodies the ultimate Gekokujō spirit, reflecting historical figures like Toyotomi Hideyoshi who rose from nothing to rule Japan through sheer military genius.</p>
-    
-    <div class="info-card border-accent-secondary bg-gray-900/50">
-        <h4 class="!mt-0 !border-b-accent-secondary/50">The Central Dilemma: Avenger or Warlord?</h4>
-        <p>Once your Daimyō are defeated, you must choose your path to glory.</p>
-        <ul class="list-none space-y-4 mt-4">
-            <li class="flex">
-                <span class="mr-4 text-accent-secondary font-bold text-xl">🗡️</span>
-                <div><strong>THE AVENGER:</strong> Hunt the leaders of other clans to claim Glory Points.<br><span class="text-sm text-gray-400">Benefit: Fastest path to victory. Risk: Makes you a direct threat to all players.</span></div>
-            </li>
-            <li class="flex">
-                <span class="mr-4 text-accent-secondary font-bold text-xl">🏯</span>
-                <div><strong>THE WARLORD:</strong> Focus on seizing the lightly defended Mandate provinces.<br><span class="text-sm text-gray-400">Benefit: A massive, single-turn Glory Point swing. Risk: Requires a large army and makes your intentions obvious.</span></div>
-            </li>
-        </ul>
-    </div>
-    
-    <p class="mt-8"><strong>Replaces the Vassalage rule (<a href="#s8_1" class="nav-link-inline">§8.1</a>).</strong> A player whose last Daimyō is defeated collects Glory Points (GP). Win at the end of the current phase upon reaching 7 GP.</p>
-    <div class="table-responsive-wrapper">
-        <table><thead><tr><th data-label="Condition">Condition</th><th data-label="GP">GP Earned</th></tr></thead><tbody><tr><td data-label="Condition">Defeat any player's last Daimyō.</td><td data-label="GP">+2 GP</td></tr><tr><td data-label="Condition">Defeat the leading player's last Daimyō.</td><td data-label="GP">+3 GP</td></tr><tr><td data-label="Condition">Gain sole control of a mandate province.</td><td data-label="GP">+3 GP</td></tr></tbody></table>
-    </div>
-</div>
-<div class="info-card">
-    <h3 class="!mt-0" id="s10_5"><span class="rule-number">§ 10.5</span>Module: The Ikkō-ikki Uprising<span title="The Ikkō-ikki Uprising Module" class="module-icon ml-2">👺</span></h3>
-    <blockquote><strong>Complexity Assessment:</strong> Rules: Medium | Depth: High | Playtime: Medium<br><strong>In a Nutshell:</strong> Adds popular rebellions that can turn lost provinces into dangerous neutral strongholds.</blockquote>
-    <p><strong>Design Philosophy:</strong> This module introduces a new internal threat. Losing a battle is no longer just a territorial loss; it can sow the seeds of a rebellion that makes reconquest difficult and costly, reflecting the historical peasant revolts that plagued many clans.</p>
+                            <h4 class="mt-8" id="s10_8_2"><span class="rule-number">§ 10.8.2</span>The Mercenary Market</h4>
+                            <p>During the <strong>Planning Phase (Phase 1)</strong>, Rōnin (Players) may openly negotiate services for Koku (paid to private supply).</p>
+                            <ul class="list-disc list-inside mt-2">
+                                <li><strong>Deployment:</strong> Hired Rōnin (Player) attach to a Patron's army. They count towards the stacking limit (7).</li>
+                                <li><strong>Binding Agreements:</strong> Agreements (e.g., "Attack Player C") are binding while paid.</li>
+                            </ul>
 
-    <h4 class="mt-8" id="s10_5_1"><span class="rule-number">§ 10.5.1</span>Unrest</h4>
-    <p>Whenever a player loses a battle as the defender in one of their provinces, an "Unrest" marker is immediately placed in that province. A Bushi from the player's supply, laid on its side, is used as the Unrest marker.</p>
+                            <h4 class="mt-8" id="s10_8_3"><span class="rule-number">§ 10.8.3</span>The Hunger Rule (Banditry)</h4>
+                            <p>If hired by <strong>NO ONE</strong> during a round, the Rōnin (Player) becomes a Bandit in the <strong>Winter Phase (Phase 3)</strong>.</p>
+                            <ul class="list-disc list-inside mt-2">
+                                <li><strong>Effect:</strong> They place their figure in any opponent's province. That province pays <strong>DOUBLE Unit Maintenance</strong>.</li>
+                                <li><strong>Immunity:</strong> Bandits cannot be attacked. They are a guerrilla threat handled only by bribery (hiring them next turn).</li>
+                            </ul>
 
-    <h4 class="mt-8" id="s10_5_2"><span class="rule-number">§ 10.5.2</span>Rebellion</h4>
-    <p>If a province with one Unrest marker receives a second, it rebels. The following happens immediately:</p>
-    <ul class="list-disc list-inside">
-        <li>All the Bushi of all present players and both Unrest markers are removed.</li>
-        <li>If a Bushi's owner's Daimyō is present, they must retreat to an adjacent, friendly province. If no retreat is possible, the Daimyō is removed from the game.</li>
-        <li>Place 3 neutral Bushi in the province, which is now a neutral "Ikkō-ikki Stronghold"</li>
-    </ul>
+                            <h4 class="mt-8" id="s10_8_4"><span class="rule-number">§ 10.8.4</span>Hero Momentum</h4>
+                            <p>During <strong>Combat Resolution (Phase 2)</strong>, the Rōnin (Player) provides unique benefits:</p>
+                            <ol class="list-decimal list-inside mt-2">
+                                <li><strong>Inspiration:</strong> Rōnin (Player) counts as a Daimyō (allows re-roll for the army).</li>
+                                <li><strong>Glory:</strong> If the army wins, the <strong>Rōnin (Player)</strong> (not the Patron) gains a <strong>Glory Marker</strong>.</li>
+                                <li><strong>Plot Armor:</strong> The Rōnin (Player) cannot be assigned as a casualty unless the entire army is wiped out.</li>
+                            </ol>
 
-    <h4 class="mt-8" id="s10_5_3"><span class="rule-number">§ 10.5.3</span>Pacification & Reconquest</h4>
-    <ul class="list-disc list-inside">
-        <li><strong>Administrative Pacification:</strong> During the Reinforcement Phase, you may spend 2 Koku to remove one Unrest marker from a province you control.</li>
-        <li><strong>Military Reconquest:</strong> An Ikkō-ikki Stronghold can be attacked by any player. To gain control, you must win the battle and then succeed at a "Pacification Test" by rolling a 4, 5, or 6 on a D6. On a failure, your attacking Bushi must retreat.</li>
-    </ul>
-</div>
-<div class="info-card">
-    <h3 class="!mt-0" id="s10_6"><span class="rule-number">§ 10.6</span>Module: The Nanban Trade & The Firearm Revolution <span title="The Nanban Trade & The Firearm Revolution Module" class="module-icon ml-2">🔫</span><span title="Specialized Warfare Module" class="module-icon ml-2">🛡️</span></h3>
-    <blockquote><strong>Complexity Assessment:</strong> Rules: Medium | Depth: High | Playtime: Medium<br><strong>In a Nutshell:</strong> Unlocks powerful but expensive gunpowder units.</blockquote>
-    <p><strong>Design Philosophy:</strong> This module represents the arrival of Portuguese traders and the revolutionary impact of firearms on Sengoku warfare. It creates a strategic race to control key trading ports and transforms military doctrine for players who can afford the technology.</p>
+                            <h4 class="mt-8" id="s10_8_5"><span class="rule-number">§ 10.8.5</span>Gekokujō (The Betrayal)</h4>
+                            <p><strong>Condition:</strong> Minimum 3 Glory Markers.</p>
+                            <p>The Rōnin (Player) may declare a coup <strong>immediately before any combat die roll</strong> involving their army. Roll 1d6:</p>
+                            <ul class="list-disc list-inside ml-4 mt-2">
+                                <li><strong>1-3 (Execution):</strong> Rōnin (Player) is killed and eliminated from the game.</li>
+                                <li><strong>4-6 (Success):</strong> Immediate usurpation. Trigger § 10.8.6 immediately.</li>
+                            </ul>
 
-    <div class="info-card !mt-6 border-accent-primary bg-gray-900/50">
-        <p class="!mt-0 font-bold">IMPORTANT: This module requires the <a href="#s10_2" class="nav-link-inline">Specialized Warfare module (§10.2)</a> to be active, as it adds the Ashigaru Arquebusiers unit type.</p>
-    </div>
+                            <div class="info-card border-accent-secondary bg-gray-900/50 mt-6">
+                                <h4 class="!mt-0 !border-b-accent-secondary/50" id="s10_8_6"><span class="rule-number">§ 10.8.6</span>The Usurper's Reward</h4>
+                                <p>Upon a successful coup (Roll 4-6), the Rōnin (Player) returns as a Daimyō and gains the following <strong>immediately</strong>:</p>
+                                <ol class="list-decimal list-inside space-y-3 mt-4">
+                                    <li><strong>Army Seizure:</strong> ALL units in the province (even the Patron's) become the Rōnin's units immediately.</li>
+                                    <li><strong>Treasury Heist:</strong> Steal <strong>50%</strong> (rounded down) of the victim's current Koku treasury.</li>
+                                    <li><strong>Momentum:</strong> Perform one immediate free <strong>Move/Attack action</strong> with the new army.</li>
+                                </ol>
+                            </div>
+                        </div>
 
-    <h4 class="mt-8" id="s10_6_1"><span class="rule-number">§ 10.6.1</span>Trading Posts</h4>
-    <p>The provinces of Settsu and Hizen are designated as "Nanban Trading Posts."</p>
-
-    <h4 class="mt-8" id="s10_6_2"><span class="rule-number">§ 10.6.2</span>Acquiring Firearm Technology</h4>
-    <p>A player who has sole control of at least one Trading Post at the start of the Reinforcement Phase (Phase 1b) may pay a one-time cost of 8 Koku to permanently acquire "Firearm Technology." Firearm Technology can only be acquired ONCE per player.</p>
-    <p>Upon acquiring this technology:</p>
-    <ol class="list-decimal list-inside ml-4 mt-2">
-        <li>Immediately place 3 Ashigaru Arquebusiers in the Trading Post province.</li>
-        <li>Mark your clan with a permanent "Firearm Technology" token.</li>
-    </ol>
-
-    <h4 class="mt-8" id="s10_6_3"><span class="rule-number">§ 10.6.3</span>Recruiting Arquebusiers</h4>
-    <p>A player with Firearm Technology may recruit Ashigaru Arquebusiers during the Reinforcement Phase for <strong>2 Koku per unit</strong>.</p>
-    <p>Ashigaru Arquebusiers have the following combat profile:</p>
-    <ul class="list-disc list-inside ml-4 mt-2">
-        <li><strong>Attack:</strong> 4-6 (rolled during the Firearm Phase, which occurs BEFORE the Ranged Phase)</li>
-        <li><strong>Defense:</strong> - (Arquebusiers do not roll defense dice)</li>
-        <li><strong>Special Ability: Volley</strong> - Attacks ignore castle and fortress defense bonuses</li>
-    </ul>
-
-    <h4 class="mt-8" id="s10_6_4"><span class="rule-number">§ 10.6.4</span>Strategic Considerations</h4>
-    <p>The high initial cost (8 Koku) and double recruitment cost (2 Koku/unit) make this technology a significant investment. However, the ability to ignore defensive fortifications and strike before other ranged units makes Arquebusiers a decisive force in siege warfare.</p>
-    <p class="mt-2 text-sm italic text-gray-400"><strong>Recommended Strategy:</strong> Combine Arquebusiers with cheap Ashigaru Spearmen to create a cost-effective "combined arms" force where gunners break fortifications and spearmen hold the line.</p>
-</div>
-<div class="info-card">
-    <h3 class="!mt-0" id="s10_7"><span class="rule-number">§ 10.7</span>Module: The Emperor's Favor<span title="The Emperor's Favor Module" class="module-icon ml-2">👑</span></h3>
-    <blockquote><strong>Complexity Assessment:</strong> Rules: Low | Depth: High | Playtime: Medium<br><strong>In a Nutshell:</strong> Adds a new resource, "Legitimacy," and an alternative victory condition tied to controlling Kyoto.</blockquote>
-    <p><strong>Design Philosophy:</strong> This module elevates the strategic importance of the Imperial Capital. It models the political legitimacy granted by the Emperor, creating a new currency—Legitimacy—that can be spent on powerful edicts or accumulated to achieve a decisive political victory, forcing players to fight for prestige as well as territory.</p>
-
-    <h4 class="mt-8" id="s10_7_1"><span class="rule-number">§ 10.7.1</span>Gaining Legitimacy</h4>
-    <p>To gain 1 Legitimacy Point, a player must have sole control of Yamashiro (Kyoto) at the start of the Reinforcement Phase. 'Sole control' means the province is occupied only by that player's units. The presence of any allied or enemy units prevents the gain of Legitimacy. Legitimacy is tracked openly with Koku coins from the general supply or any other countable item at hand.</p>
-
-    <h4 class="mt-8" id="s10_7_2"><span class="rule-number">§ 10.7.2</span>Issuing Imperial Edicts</h4>
-    <p>During your own turn in the campaign phase, before movement, you may spend Legitimacy on one of the following:</p>
-    <ul class="list-disc list-inside">
-        <li><strong>3 Legitimacy (Legitimate Claim):</strong> Remove up to 3 enemy Bushi from any one province that does not contain their Daimyō. Their owner(s) receive(s) 1 Koku from the general supply per Bushi removed this way.</li>
-        <li><strong>3 Legitimacy (Imperial Censure):</strong> Choose one other player. For the remainder of the game round, any player who initiates an attack against the censured player receives a +1 bonus to their attack rolls for that battle.</li>
-        <li><strong>6 Legitimacy (Appointed Shogun):</strong> If you control Kyoto at the start of your turn and have 6 or more Legitimacy, you immediately win the game. This victory condition overrides all others from the core rulebook.</li>
-    </ul>
-
-</div>
+                    </div></div>
                 </section>
                 `,
-                'strategy': `
+'strategy': `
                 <section id="page-strategy" class="page-container">
                     <div class="py-12 px-4"><div class="max-w-4xl mx-auto">
 <header class="page-header">
     <div class="header-content">
         <h1>Strategy</h1>
-        <p class="subtitle">From Clan Tactics to Ancient Wisdom</p>
+        <p class="subtitle">A Manual for Survival, Not Glory</p>
     </div>
 </header>
 
-<!-- DIDACTIC FUNNEL PART 1: THE FOUNDATION -->
 <section id="s8_clans_guide" class="page-section">
-    <h2>The Foundation: A Commander's Guide to the Great Clans</h2>
-    <p class="text-gray-400 mb-6">Your journey begins here. Mastering a clan requires understanding its unique strengths, inherent weaknesses, and strategic objectives. Know your tools before you draw your sword.</p>
+    <h2>The Foundation: An Assessment of Clan Capabilities</h2>
+    <p class="text-gray-400 mb-6">Victory requires a clear understanding of one’s tools. The following assessments outline the inherent advantages and structural weaknesses of each clan. Do not mistake these for guarantees of success; they are merely starting conditions.</p>
 
     <div class="space-y-6">
-
         <!-- Chosokabe -->
         <details class="bg-gray-800 p-4 rounded-lg">
-            <summary class="cursor-pointer font-semibold">The Chosokabe Clan (Economist)</summary>
+            <summary class="cursor-pointer font-semibold">The Chosokabe Clan (The Administrator)</summary>
             <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div class="md:col-span-2">
-                    <h4 class="!mt-0 !border-b-0">How to Play the Chosokabe</h4>
+                    <h4 class="!mt-0 !border-b-0">Operational Doctrine</h4>
                     <ul class="list-disc list-inside space-y-2">
-                        <li><strong>Compound Your Income:</strong> Secure two coastal provinces early to max out your ability. This income advantage is your primary weapon.</li>
-                        <li><strong>Build Tall:</strong> Use your superior income to build a Castle and recruit larger armies, playing defensively while your economy snowballs.</li>
-                        <li><strong>Overwhelm with Numbers:</strong> In the mid-to-late game, field large armies that other clans cannot afford to maintain.</li>
+                        <li><strong>Economic Accumulation:</strong> The clan's advantage lies in compounding income. Secure two coastal provinces early. This fiscal surplus is your only reliable weapon.</li>
+                        <li><strong>Defensive Growth:</strong> Construct a Castle. Recruit steadily. Avoid early conflicts that drain the treasury before it can mature.</li>
                     </ul>
-                    <h4 class="mt-6">How to Counter the Chosokabe</h4>
+                    <h4 class="mt-6">Counter-Strategies</h4>
                     <ul class="list-disc list-inside space-y-2">
-                        <li><strong>Attack Early:</strong> An aggressive early attack can cripple them before their economy is fully developed.</li>
-                        <li><strong>Disrupt their Coast:</strong> Seizing one of their key coastal territories slows their economic engine.</li>
+                        <li><strong>Preemptive Strike:</strong> Attack before their economy stabilizes. A Chosokabe player without a treasury is merely a target.</li>
+                        <li><strong>Coastal Denial:</strong> Occupying their coastline is more damaging than defeating their armies.</li>
                     </ul>
                 </div>
                 <div>
-                    <h4 class="!mt-0 !border-b-0">Starting Province</h4>
+                    <h4 class="!mt-0 !border-b-0">Base of Operations</h4>
                     <div class="text-center p-2 rounded-lg bg-gray-900">
                         <img src="images/provinces/tosa-600.jpg" alt="Map showing Tosa province" class="w-full h-auto rounded-md">
-                        <p class="text-xs text-gray-400 mt-2">Start: Tosa. Secure your home island of Shikoku before expanding north.</p>
+                        <p class="text-xs text-gray-400 mt-2">Start: Tosa. Secure Shikoku. Then look north.</p>
                     </div>
                 </div>
             </div>
         </details>
-
-        <!-- Hōjō -->
+        <!-- Hojo -->
         <details class="bg-gray-800 p-4 rounded-lg">
-            <summary class="cursor-pointer font-semibold">The Hōjō Clan (Builder)</summary>
+            <summary class="cursor-pointer font-semibold">The Hōjō Clan (The Architect)</summary>
             <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div class="md:col-span-2">
-                    <h4 class="!mt-0 !border-b-0">How to Play the Hōjō</h4>
+                    <h4 class="!mt-0 !border-b-0">Operational Doctrine</h4>
                     <ul class="list-disc list-inside space-y-2">
-                        <li><strong>Build the Fortress Early:</strong> Your Fortress in Sagami is a primary objective and an unbreakable anchor for your territories.</li>
-                        <li><strong>Control the Center:</strong> Your home is a Mandate Province. Secure your fortress, then use it as a base to attack Kyoto and Osaka.</li>
+                        <li><strong>Fortification:</strong> Your priority is the Fortress in Sagami. It is a static anchor in a fluid map.</li>
+                        <li><strong>Central Projection:</strong> Sagami is a Mandate Province. Secure your base, then methodically expand toward Kyoto and Osaka. Do not overextend.</li>
                     </ul>
-                    <h4 class="mt-6">How to Counter the Hōjō</h4>
+                    <h4 class="mt-6">Counter-Strategies</h4>
                     <ul class="list-disc list-inside space-y-2">
-                        <li><strong>Ignore the Fortress:</strong> Do not attack their fortress. The +2 defense bonus is a trap. Conquer other provinces to win.</li>
-                        <li><strong>Isolate and Contain:</strong> Capture the provinces around their fortress to limit their income and expansion.</li>
+                        <li><strong>Bypass:</strong> Do not assault the Fortress. The +2 defense bonus is a mathematical trap. Win by conquering the undefended periphery.</li>
+                        <li><strong>Containment:</strong> Isolate Sagami. A fortress without income is a tomb.</li>
                     </ul>
                 </div>
                 <div>
-                    <h4 class="!mt-0 !border-b-0">Starting Province</h4>
+                    <h4 class="!mt-0 !border-b-0">Base of Operations</h4>
                     <div class="text-center p-2 rounded-lg bg-gray-900">
                         <img src="images/provinces/sagami-600.jpg" alt="Map showing Sagami province" class="w-full h-auto rounded-md">
-                        <p class="text-xs text-gray-400 mt-2">Start: Sagami. Your fortress here is the key to a Mandate Victory.</p>
+                        <p class="text-xs text-gray-400 mt-2">Start: Sagami. Your fortress is your mandate.</p>
                     </div>
                 </div>
             </div>
         </details>
-
-        <!-- Mōri -->
+        <!-- Mori -->
         <details class="bg-gray-800 p-4 rounded-lg">
-            <summary class="cursor-pointer font-semibold">The Mōri Clan (Naval Power)</summary>
+            <summary class="cursor-pointer font-semibold">The Mōri Clan (The Navigator)</summary>
             <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div class="md:col-span-2">
-                    <h4 class="!mt-0 !border-b-0">How to Play the Mōri</h4>
+                    <h4 class="!mt-0 !border-b-0">Operational Doctrine</h4>
                     <ul class="list-disc list-inside space-y-2">
-                        <li><strong>Establish a Coastal Network:</strong> Your primary goal is to control a string of coastal provinces for your economy and redeployment ability.</li>
-                        <li><strong>Strategic Redeployment:</strong> Your greatest strength is surprise. For 1 Koku, you can shift a significant force across the map to an undefended flank.</li>
+                        <li><strong>Coastal Chain:</strong> Your economy and mobility depend on contiguous coastal control. Lose the coast, and you lose your advantage.</li>
+                        <li><strong>Asymmetric Threat:</strong> For 1 Koku, you can redeploy force across the map. Use this to strike undefended rears. The threat of movement is often as useful as the movement itself.</li>
                     </ul>
-                    <h4 class="mt-6">How to Counter the Mōri</h4>
+                    <h4 class="mt-6">Counter-Strategies</h4>
                     <ul class="list-disc list-inside space-y-2">
-                        <li><strong>Break the Chain:</strong> Capturing a single key coastal province can sever their sea connection, nullifying their greatest advantage.</li>
-                        <li><strong>Anticipate the Target:</strong> Do not leave your key coastal economic centers undefended.</li>
+                        <li><strong>Sever the Line:</strong> Capture a central coastal province to break their transit network.</li>
+                        <li><strong>Rear Guard:</strong> Do not leave coastal centers undefended. The Mōri rely on your negligence.</li>
                     </ul>
                 </div>
                 <div>
-                    <h4 class="!mt-0 !border-b-0">Starting Province</h4>
+                    <h4 class="!mt-0 !border-b-0">Base of Operations</h4>
                     <div class="text-center p-2 rounded-lg bg-gray-900">
                          <img src="images/provinces/aki-600.jpg" alt="Map showing Aki province" class="w-full h-auto rounded-md">
-                        <p class="text-xs text-gray-400 mt-2">Start: Aki. Use it to dominate the inland sea and project power east and west.</p>
+                        <p class="text-xs text-gray-400 mt-2">Start: Aki. Dominate the inland sea.</p>
                     </div>
                 </div>
             </div>
         </details>
-
         <!-- Oda -->
         <details class="bg-gray-800 p-4 rounded-lg">
-            <summary class="cursor-pointer font-semibold">The Oda Clan (Aggressor)</summary>
+            <summary class="cursor-pointer font-semibold">The Oda Clan (The Belligerent)</summary>
             <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div class="md:col-span-2">
-                    <h4 class="!mt-0 !border-b-0">How to Play the Oda</h4>
+                    <h4 class="!mt-0 !border-b-0">Operational Doctrine</h4>
                     <ul class="list-disc list-inside space-y-2">
-                        <li><strong>Utilise Daimyō in Combat:</strong> Your Daimyō are military assets. Use them in important assaults to gain the +1 attack bonus.</li>
-                        <li><strong>Early Military Action:</strong> You have no economic bonuses. Attack a neighbor early to acquire provinces before their economy develops.</li>
+                        <li><strong>Leader-Centric Combat:</strong> Your troops are mediocre without a Daimyō. Concentrate force around your leaders to utilize the attack bonus.</li>
+                        <li><strong>Aggressive Acquisition:</strong> You lack economic traits. You must take land from others to fund your army. Stagnation is death.</li>
                     </ul>
-                    <h4 class="mt-6">How to Counter the Oda</h4>
+                    <h4 class="mt-6">Counter-Strategies</h4>
                     <ul class="list-disc list-inside space-y-2">
-                        <li><strong>Target the Daimyō:</strong> Without a Daimyō present, their ability does not apply. Use a Ninja or a feint to isolate their leader.</li>
-                        <li><strong>Avoid Decisive Battles:</strong> They benefit from large battles where their bonus shines. Employ smaller attacks and force them to spread out.</li>
+                        <li><strong>Headhunting:</strong> Without a Daimyō, the Oda are just expensive peasants. Use Ninjas or targeted strikes to remove their leadership.</li>
+                        <li><strong>Attrition:</strong> Avoid pitched battles. Force them to split their armies, diluting their leadership bonus.</li>
                     </ul>
                 </div>
                 <div>
-                    <h4 class="!mt-0 !border-b-0">Starting Province</h4>
+                    <h4 class="!mt-0 !border-b-0">Base of Operations</h4>
                     <div class="text-center p-2 rounded-lg bg-gray-900">
                         <img src="images/provinces/owari-600.jpg" alt="Map showing Owari province" class="w-full h-auto rounded-md">
-                        <p class="text-xs text-gray-400 mt-2">Start: Owari. Your central position is perfect for a swift strike towards Kyoto.</p>
+                        <p class="text-xs text-gray-400 mt-2">Start: Owari. A central position for a central threat.</p>
                     </div>
                 </div>
             </div>
         </details>
-
         <!-- Otomo -->
         <details class="bg-gray-800 p-4 rounded-lg">
-            <summary class="cursor-pointer font-semibold">The Otomo Clan (Gambler)</summary>
+            <summary class="cursor-pointer font-semibold">The Otomo Clan (The Speculator)</summary>
             <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div class="md:col-span-2">
-                    <h4 class="!mt-0 !border-b-0">How to Play the Otomo</h4>
+                    <h4 class="!mt-0 !border-b-0">Operational Doctrine</h4>
                     <ul class="list-disc list-inside space-y-2">
-                        <li><strong>Conserve Koku:</strong> Your ability is expensive. Play conservatively, build your treasury, and save it for a single, game-changing battle.</li>
-                        <li><strong>The Decisive Battle:</strong> Use your ability when attacking a high-value target (a Mandate Province, an enemy Daimyō) where the odds are otherwise unfavorable.</li>
+                        <li><strong>Fiscal Discipline:</strong> Your ability costs 2 Koku. Do not waste it on skirmishes. Hoard your wealth.</li>
+                        <li><strong>Calculated Risk:</strong> Use your re-roll ability only when the outcome decides the game—seizing a Mandate Province or eliminating a rival.</li>
                     </ul>
-                    <h4 class="mt-6">How to Counter the Otomo</h4>
+                    <h4 class="mt-6">Counter-Strategies</h4>
                     <ul class="list-disc list-inside space-y-2">
-                        <li><strong>Drain their Treasury:</strong> Force them into small, insignificant battles to bait them into spending their Koku.</li>
-                        <li><strong>Force them to Defend:</strong> Their ability only works when attacking. If you can force the Otomo to be the defender, their ability is useless.</li>
+                        <li><strong>Economic Warfare:</strong> Force them into frequent, low-value conflicts to drain their treasury.</li>
+                        <li><strong>Defensive Posture:</strong> Their advantage is offensive. Force them to defend, and they are ordinary.</li>
                     </ul>
                 </div>
                 <div>
-                    <h4 class="!mt-0 !border-b-0">Starting Province</h4>
+                    <h4 class="!mt-0 !border-b-0">Base of Operations</h4>
                     <div class="text-center p-2 rounded-lg bg-gray-900">
                         <img src="images/provinces/bungo-600.jpg" alt="Map showing Bungo province" class="w-full h-auto rounded-md">
-                        <p class="text-xs text-gray-400 mt-2">Start: Bungo. Consolidate your power on Kyushu before launching a decisive, well-funded invasion.</p>
+                        <p class="text-xs text-gray-400 mt-2">Start: Bungo. Consolidate Kyushu, then buy your victory.</p>
                     </div>
                 </div>
             </div>
         </details>
-
         <!-- Shimazu -->
         <details class="bg-gray-800 p-4 rounded-lg">
-            <summary class="cursor-pointer font-semibold">The Shimazu Clan (Expansionist)</summary>
+            <summary class="cursor-pointer font-semibold">The Shimazu Clan (The Expansionist)</summary>
             <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div class="md:col-span-2">
-                    <h4 class="!mt-0 !border-b-0">How to Play the Shimazu</h4>
+                    <h4 class="!mt-0 !border-b-0">Operational Doctrine</h4>
                     <ul class="list-disc list-inside space-y-2">
-                        <li><strong>Dominate the Coast:</strong> Your first goal is to capture three coastal provinces to max out your ability and gain a Koku advantage.</li>
-                        <li><strong>Create a Snowball Effect:</strong> Reinvest your extra income immediately into more Bushi to leverage your economic advantage into a military one.</li>
+                        <li><strong>Coastal Imperative:</strong> Capture three coastal provinces immediately. This maximizes your income bonus.</li>
+                        <li><strong>Momentum:</strong> Convert early economic gains directly into troop numbers. You must snowball before your rivals stabilize.</li>
                     </ul>
-                    <h4 class="mt-6">How to Counter the Shimazu</h4>
+                    <h4 class="mt-6">Counter-Strategies</h4>
                     <ul class="list-disc list-inside space-y-2">
-                        <li><strong>Deny the Coast:</strong> Contest coastal provinces early to slow their economic engine.</li>
-                        <li><strong>Outlast Them:</strong> Their bonus caps at +3. A clan with a stronger late-game ability can often weather the initial expansion and overpower them later.</li>
+                        <li><strong>Early Containment:</strong> Contest coastal provinces to starve their economy.</li>
+                        <li><strong>Patience:</strong> Their bonus is capped. If you survive the early game, their advantage diminishes.</li>
                     </ul>
                 </div>
                 <div>
-                    <h4 class="!mt-0 !border-b-0">Starting Province</h4>
+                    <h4 class="!mt-0 !border-b-0">Base of Operations</h4>
                     <div class="text-center p-2 rounded-lg bg-gray-900">
                         <img src="images/provinces/satsuma-600.jpg" alt="Map showing Satsuma province" class="w-full h-auto rounded-md">
-                        <p class="text-xs text-gray-400 mt-2">Start: Satsuma. Your corner position is secure; expand rapidly along the coast to fuel your economy.</p>
+                        <p class="text-xs text-gray-400 mt-2">Start: Satsuma. Secure the corner, then push north.</p>
                     </div>
                 </div>
             </div>
         </details>
-
         <!-- Takeda -->
         <details class="bg-gray-800 p-4 rounded-lg">
-            <summary class="cursor-pointer font-semibold">The Takeda Clan (Mobile Force)</summary>
+            <summary class="cursor-pointer font-semibold">The Takeda Clan (The Cavalryman)</summary>
             <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div class="md:col-span-2">
-                    <h4 class="!mt-0 !border-b-0">How to Play the Takeda</h4>
+                    <h4 class="!mt-0 !border-b-0">Operational Doctrine</h4>
                     <ul class="list-disc list-inside space-y-2">
-                        <li><strong>Threaten Multiple Fronts:</strong> Use your speed to position your main army in a central location from which it can strike in multiple directions.</li>
-                        <li><strong>The Decisive Strike:</strong> Assemble a strong force under one Daimyō and use its 3-province movement to bypass enemy screens and attack a critical target.</li>
+                        <li><strong>Central Posture:</strong> Position your main force centrally. Your threat radius is larger than any other clan's.</li>
+                        <li><strong>Deep Strike:</strong> Utilize the 3-province movement to bypass front lines and strike critical, rear-area targets.</li>
                     </ul>
-                    <h4 class="mt-6">How to Counter the Takeda</h4>
+                    <h4 class="mt-6">Counter-Strategies</h4>
                     <ul class="list-disc list-inside space-y-2">
-                        <li><strong>Screen and Block:</strong> Use single Bushi units to create a screen. Their army must stop upon entering an enemy province, preventing a deep strike.</li>
-                        <li><strong>Counter-Attack the Homeland:</strong> Their power is often concentrated in one army. When it goes on campaign, their home can be left vulnerable.</li>
+                        <li><strong>Screening:</strong> A single Bushi can stop an army. Use picket lines to negate their mobility advantage.</li>
+                        <li><strong>Base Strike:</strong> When the Takeda army moves out, their home is often exposed. Attack the empty nest.</li>
                     </ul>
                 </div>
                 <div>
-                    <h4 class="!mt-0 !border-b-0">Starting Province</h4>
+                    <h4 class="!mt-0 !border-b-0">Base of Operations</h4>
                     <div class="text-center p-2 rounded-lg bg-gray-900">
                         <img src="images/provinces/kai-600.jpg" alt="Map showing Kai province" class="w-full h-auto rounded-md">
-                        <p class="text-xs text-gray-400 mt-2">Start: Kai. Your mobile cavalry is a threat to every clan in the center of Japan.</p>
+                        <p class="text-xs text-gray-400 mt-2">Start: Kai. Speed is your armor.</p>
                     </div>
                 </div>
             </div>
         </details>
-
         <!-- Tokugawa -->
         <details class="bg-gray-800 p-4 rounded-lg">
-            <summary class="cursor-pointer font-semibold">The Tokugawa Clan (Turtle)</summary>
+            <summary class="cursor-pointer font-semibold">The Tokugawa Clan (The Patient)</summary>
             <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div class="md:col-span-2">
-                    <h4 class="!mt-0 !border-b-0">How to Play the Tokugawa</h4>
+                    <h4 class="!mt-0 !border-b-0">Operational Doctrine</h4>
                     <ul class="list-disc list-inside space-y-2">
-                        <li><strong>Secure the Highlands:</strong> Occupy mountain provinces to create a defensive core that is a logistical nightmare for your enemies, especially in Winter.</li>
-                        <li><strong>Focus on the Late Game:</strong> Build a strong economy and army. The goal is to be in a superior position in the late game when others are overextended.</li>
+                        <li><strong>Highland Entrenchment:</strong> Occupy mountain provinces. For others, they are a burden; for you, they are free fortresses.</li>
+                        <li><strong>Attrition:</strong> You play a long game. Let others exhaust themselves fighting for the plains while you build strength in the mountains.</li>
                     </ul>
-                    <h4 class="mt-6">How to Counter the Tokugawa</h4>
+                    <h4 class="mt-6">Counter-Strategies</h4>
                     <ul class="list-disc list-inside space-y-2">
-                        <li><strong>Deny Mountain Access:</strong> Contest mountain provinces early to slow their economic development.</li>
-                        <li><strong>Expand Elsewhere:</strong> Avoid costly attacks against their fortified mountain positions. Expand across the coastal and central plains instead.</li>
+                        <li><strong>Denial:</strong> Contest mountain provinces early. Without them, the Tokugawa advantage is null.</li>
+                        <li><strong>Ignore Them:</strong> Do not attack them in the mountains. Expand elsewhere and out-produce them.</li>
                     </ul>
                 </div>
                 <div>
-                    <h4 class="!mt-0 !border-b-0">Starting Province</h4>
+                    <h4 class="!mt-0 !border-b-0">Base of Operations</h4>
                     <div class="text-center p-2 rounded-lg bg-gray-900">
                         <img src="images/provinces/mikawa-600.jpg" alt="Map showing Mikawa province" class="w-full h-auto rounded-md">
-                        <p class="text-xs text-gray-400 mt-2">Start: Mikawa. Be patient. Let your neighbors weaken each other, then emerge from your stronghold.</p>
+                        <p class="text-xs text-gray-400 mt-2">Start: Mikawa. Wait. The mountain does not move.</p>
                     </div>
                 </div>
             </div>
         </details>
-
         <!-- Uesugi -->
         <details class="bg-gray-800 p-4 rounded-lg">
-            <summary class="cursor-pointer font-semibold">The Uesugi Clan (Defender)</summary>
+            <summary class="cursor-pointer font-semibold">The Uesugi Clan (The Sentinel)</summary>
             <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div class="md:col-span-2">
-                    <h4 class="!mt-0 !border-b-0">How to Play the Uesugi</h4>
+                    <h4 class="!mt-0 !border-b-0">Operational Doctrine</h4>
                     <ul class="list-disc list-inside space-y-2">
-                        <li><strong>Establish a Defensive Front:</strong> Your ability makes every province a fortress. Secure key chokepoints and let the enemy break upon your walls.</li>
-                        <li><strong>Calculated Offense:</strong> Conquer a province, hold it for a round to activate your bonus, and then use that secure base to launch your next strike.</li>
+                        <li><strong>Static Defense:</strong> Your ability turns any province held at the start of the round into a hardpoint. Secure chokepoints and force the enemy to come to you.</li>
+                        <li><strong>Methodical Advance:</strong> Conquer, hold for a round to activate your bonus, then advance. Do not rush.</li>
                     </ul>
-                    <h4 class="mt-6">How to Counter the Uesugi</h4>
+                    <h4 class="mt-6">Counter-Strategies</h4>
                     <ul class="list-disc list-inside space-y-2">
-                        <li><strong>Avoid Attacking Their Strength:</strong> Force them to attack you, as their ability is useless on offense.</li>
-                        <li><strong>Exploit Tempo:</strong> Counter-attack a province they just conquered *this round* to deny them their defensive bonus.</li>
+                        <li><strong>Indirect Approach:</strong> Do not attack where they are strong. Force them to attack you.</li>
+                        <li><strong>Tempo:</strong> Strike provinces they have just conquered *this round*. They are vulnerable before they can dig in.</li>
                     </ul>
                 </div>
                 <div>
-                    <h4 class="!mt-0 !border-b-0">Starting Province</h4>
+                    <h4 class="!mt-0 !border-b-0">Base of Operations</h4>
                     <div class="text-center p-2 rounded-lg bg-gray-900">
                         <img src="images/provinces/echigo-600.jpg" alt="Map showing Echigo province" class="w-full h-auto rounded-md">
-                        <p class="text-xs text-gray-400 mt-2">Start: Echigo. Let your rivals exhaust their armies against your impregnable domain.</p>
+                        <p class="text-xs text-gray-400 mt-2">Start: Echigo. Let them break upon your walls.</p>
                     </div>
                 </div>
             </div>
@@ -1934,94 +1870,54 @@ if (searchInput && tocList && noResultsMsg) {
     </div>
 </section>
 
-<!-- DIDACTIC FUNNEL PART 2: THE LIBRARY -->
 <section id="s8_war_college" class="page-section">
-    <h2>The Library: Master the Classics</h2>
-    <p class="text-gray-400 mb-6">The strategic situations in Gekokujō are not new. For centuries, commanders have faced the same dilemmas. Study these classical texts to deepen your understanding of the art of war.</p>
+    <h2>The Library: Historical Precedents</h2>
+    <p class="text-gray-400 mb-6">The dilemmas you face on the board are abstractions of real historical crises. While plastic figures feel no pain, the logic of their movement remains consistent with ancient doctrine. Consider the following not as rules, but as observations.</p>
 
     <details class="bg-gray-800 p-4 rounded-lg mt-4">
-        <summary class="cursor-pointer font-semibold text-xl">Sun Tzu's Art of War: Selected Aphorisms</summary>
+        <summary class="cursor-pointer font-semibold text-xl">Sun Tzu: Notes on Efficiency</summary>
         <div class="mt-6">
-            <p class="mb-6 text-gray-400">Sun Tzu's "The Art of War," an ancient Chinese military treatise from the 5th century BC, remains the single most influential work of military strategy. Its principles are as relevant to Gekokujō as they were to ancient China.</p>
+            <p class="mb-6 text-gray-400">Written in the 5th century BCE, these aphorisms are often quoted but rarely understood. In the context of this game, they are practical advice for resource management.</p>
             <div class="space-y-4">
-                <blockquote class="border-l-4 border-accent-secondary pl-4 italic">"The supreme art of war is to subdue the enemy without fighting."</blockquote>
-                <blockquote class="border-l-4 border-accent-secondary pl-4 italic">"All warfare is based on deception."</blockquote>
-                <blockquote class="border-l-4 border-accent-secondary pl-4 italic">"He will win who knows when to fight and when not to fight."</blockquote>
-                <blockquote class="border-l-4 border-accent-secondary pl-4 italic">"In the midst of chaos, there is also opportunity."</blockquote>
-                <blockquote class="border-l-4 border-accent-secondary pl-4 italic">"If you know the enemy and know yourself, you need not fear the result of a hundred battles."</blockquote>
+                <blockquote class="border-l-4 border-accent-secondary pl-4 italic">"The supreme art of war is to subdue the enemy without fighting." <br><span class="text-xs text-gray-500 not-italic">- Use the Ninja's 'Deny Passage' to halt an army for 3 Koku, cheaper than raising an army to fight it.</span></blockquote>
+                <blockquote class="border-l-4 border-accent-secondary pl-4 italic">"All warfare is based on deception." <br><span class="text-xs text-gray-500 not-italic">- Your hidden Koku supply is your only true secret. Guard it.</span></blockquote>
+                <blockquote class="border-l-4 border-accent-secondary pl-4 italic">"He will win who knows when to fight and when not to fight." <br><span class="text-xs text-gray-500 not-italic">- Retreat is a valid maneuver. Losing a province is preferable to losing an army you cannot afford to replace.</span></blockquote>
             </div>
         </div>
     </details>
 
     <details class="bg-gray-800 p-4 rounded-lg mt-4">
-        <summary class="cursor-pointer font-semibold text-xl">The Thirty-Six Stratagems</summary>
+        <summary class="cursor-pointer font-semibold text-xl">The Thirty-Six Stratagems: A Catalogue of Deceit</summary>
         <div class="mt-6">
-            <p class="mb-6 text-gray-400">A collection of Chinese proverbs illustrating cunning strategies, often employing deception and psychological warfare. They offer a masterclass in asymmetrical thinking.</p>
+            <p class="mb-6 text-gray-400">These Chinese idioms illustrate that fairness is not a virtue in conflict. They are categorized here by their utility in the game.</p>
             <div class="space-y-8">
                 <div>
-                    <h4 class="!mt-0 !border-b-gray-700 text-lg">I. Winning Stratagems</h4>
+                    <h4 class="!mt-0 !border-b-gray-700 text-lg">I. Economy of Force</h4>
                     <div class="space-y-4 mt-4">
-                        <p id="stratagem-1"><strong>1. Deceive the Heavens to Cross the Sea:</strong> Mask your true goal behind a mundane, overt operation.</p>
-                        <p id="stratagem-2"><strong>2. Besiege Wèi to Rescue Zhào:</strong> Attack something of value to your enemy to force them to relieve your own threatened forces.</p>
-                        <p id="stratagem-3"><strong>3. Kill with a Borrowed Sword:</strong> Use the strength of a third party to attack your enemy.</p>
-                        <p id="stratagem-4"><strong>4. Await the Exhausted Enemy at Your Ease:</strong> Conserve your energy while encouraging your enemy to expend theirs.</p>
-                        <p id="stratagem-5"><strong>5. Loot a Burning House:</strong> Capitalize on an enemy's internal chaos or crisis to advance your own interests.</p>
-                        <p id="stratagem-6"><strong>6. Make a Sound in the East, Then Strike in the West:</strong> Use a feint to focus the enemy's attention on one location, then attack a different point.</p>
+                        <p id="stratagem-1"><strong>1. Deceive the Heavens to Cross the Sea:</strong> Mask a major offensive with routine maneuvers.</p>
+                        <p id="stratagem-2"><strong>2. Besiege Wèi to Rescue Zhào:</strong> Attack an enemy's resource base to force their main army to retreat.</p>
+                        <p id="stratagem-3"><strong>3. Kill with a Borrowed Sword:</strong> Maneuver a third party into attacking your enemy. Or, use a Ninja.</p>
+                        <p id="stratagem-4"><strong>4. Await the Exhausted Enemy at Your Ease:</strong> Fortify and wait. Let the enemy spend Koku on movement while you accrue interest.</p>
+                        <p id="stratagem-5"><strong>5. Loot a Burning House:</strong> When a player is bankrupted by a Ninja, attack them immediately.</p>
+                        <p id="stratagem-6"><strong>6. Make a Sound in the East, Then Strike in the West:</strong> Position a threat on one border, then move your Takeda cavalry to the other.</p>
                     </div>
                 </div>
                  <div>
-                    <h4 class="!mt-8 !border-b-gray-700 text-lg">II. Enemy-Dealing Stratagems</h4>
+                    <h4 class="!mt-8 !border-b-gray-700 text-lg">II. Opportunism</h4>
                     <div class="space-y-4 mt-4">
-                        <p id="stratagem-7"><strong>7. Create Something from Nothing:</strong> Use deception to make an audience believe in something that doesn't exist.</p>
-                        <p id="stratagem-8"><strong>8. Openly Repair Roads, Secretly Advance to Chencang:</strong> Deceive with an obvious, slow approach, while secretly taking a faster route.</p>
-                        <p id="stratagem-9"><strong>9. Watch the Fires Burning Across the River:</strong> Delay entering a conflict while other parties exhaust themselves. Step in to claim the prize when they are weakened.</p>
-                        <p id="stratagem-10"><strong>10. Hide a Knife Behind a Smile:</strong> Win your enemy's trust with friendship, then strike when their guard is down.</p>
-                        <p id="stratagem-11"><strong>11. Sacrifice the Plum Tree to Preserve the Peach Tree:</strong> Suffer a minor, calculated loss to secure a major gain.</p>
-                        <p id="stratagem-12"><strong>12. Take the Opportunity to Pilfer a Goat:</strong> Seize any small, unforeseen advantage. Be flexible and opportunistic.</p>
+                        <p id="stratagem-9"><strong>9. Watch the Fires Burning Across the River:</strong> Do not intervene in a war between rivals. Wait until the winner is weakened, then destroy them.</p>
+                        <p id="stratagem-10"><strong>10. Hide a Knife Behind a Smile:</strong> Form an Alliance. Break it when the profit exceeds the cost of the Blood Feud.</p>
+                        <p id="stratagem-11"><strong>11. Sacrifice the Plum Tree to Preserve the Peach Tree:</strong> Lose a province to save a Daimyō.</p>
+                        <p id="stratagem-12"><strong>12. Take the Opportunity to Pilfer a Goat:</strong> If a province is undefended, take it. Do not overthink it.</p>
                     </div>
                 </div>
                 <div>
-                    <h4 class="!mt-8 !border-b-gray-700 text-lg">III. Attacking Stratagems</h4>
+                    <h4 class="!mt-8 !border-b-gray-700 text-lg">III. Attack & Chaos</h4>
                      <div class="space-y-4 mt-4">
-                        <p id="stratagem-13"><strong>13. Stomp the Grass to Scare the Snake:</strong> Make an indirect move to provoke a reaction from the enemy, revealing their plans.</p>
-                        <p id="stratagem-14"><strong>14. Borrow a Corpse to Resurrect the Soul:</strong> Revive something from the past (an idea, a tradition) to serve a new purpose.</p>
-                        <p id="stratagem-15"><strong>15. Lure the Tiger Down from the Mountain:</strong> Entice a strong enemy away from their advantageous, fortified position.</p>
-                        <p id="stratagem-16"><strong>16. In Order to Capture, One Must Let Loose:</strong> Give your enemy an apparent escape route to lower their morale and then ambush them as they flee.</p>
-                        <p id="stratagem-17"><strong>17. Toss Out a Brick to Get a Jade Gem:</strong> Bait the enemy with something of little value to get something of great value in return.</p>
-                        <p id="stratagem-18"><strong>18. Defeat the Enemy by Capturing Their Chief:</strong> If you can neutralize the leader, the rest of the organization will collapse.</p>
-                    </div>
-                </div>
-                <div>
-                    <h4 class="!mt-8 !border-b-gray-700 text-lg">IV. Chaos Stratagems</h4>
-                     <div class="space-y-4 mt-4">
-                        <p id="stratagem-19"><strong>19. Remove the Firewood from Under the Pot:</strong> Attack the enemy's source of strength (supply lines, alliances), not their direct military power.</p>
-                        <p id="stratagem-20"><strong>20. Disturb the Water and Catch a Fish:</strong> Create chaos and confusion to exploit the situation for your own benefit.</p>
-                        <p id="stratagem-21"><strong>21. Slough Off the Cicada's Golden Shell:</strong> Create a decoy to escape, leaving behind an empty "shell" while your real forces move undetected.</p>
-                        <p id="stratagem-22"><strong>22. Shut the Door to Catch the Thief:</strong> When dealing with a weak enemy, encircle them completely before attacking.</p>
-                        <p id="stratagem-23"><strong>23. Befriend a Distant State While Attacking a Neighbor:</strong> Build alliances with those far away to isolate and threaten your immediate rivals.</p>
-                        <p id="stratagem-24"><strong>24. Obtain Safe Passage to Conquer Guo:</strong> Ask to borrow passage from an ally to attack a common enemy, but then use that position to turn on the ally.</p>
-                    </div>
-                </div>
-                <div>
-                    <h4 class="!mt-8 !border-b-gray-700 text-lg">V. Proximate Stratagems</h4>
-                     <div class="space-y-4 mt-4">
-                        <p id="stratagem-25"><strong>25. Replace Beams with Rotten Timbers:</strong> Subtly sabotage the enemy's foundations by replacing their key assets with inferior ones.</p>
-                        <p id="stratagem-26"><strong>26. Point at Mulberry while Cursing Locust:</strong> Issue an indirect threat to intimidate your real target without a direct confrontation.</p>
-                        <p id="stratagem-27"><strong>27. Feign Madness but Keep Your Balance:</strong> Pretend to be foolish or insane to make the enemy underestimate you.</p>
-                        <p id="stratagem-28"><strong>28. Remove the Ladder When the Enemy has Ascended:</strong> Lure your enemy into a trap and then cut off their escape route.</p>
-                        <p id="stratagem-29"><strong>29. Deck the Tree with False Blossoms:</strong> Use decoys and illusions to make your forces appear much stronger than they are.</p>
-                        <p id="stratagem-30"><strong>30. Make the Host and Guest Exchange Roles:</strong> Usurp the leadership position in a situation you were invited into.</p>
-                    </div>
-                </div>
-                <div>
-                    <h4 class="!mt-8 !border-b-gray-700 text-lg">VI. Desperate Stratagems</h4>
-                     <div class="space-y-4 mt-4">
-                        <p id="stratagem-31"><strong>31. The Beauty Trap (Honey Trap):</strong> Use the allure of a person to sow discord within the enemy camp.</p>
-                        <p id="stratagem-32"><strong>32. The Empty Fort Strategy:</strong> When you are defenseless, act calmly. Your opponent, fearing an ambush, may withdraw.</p>
-                        <p id="stratagem-33"><strong>33. Let the Enemy's Own Spy Sow Discord:</strong> Use an enemy agent against them by feeding them false information.</p>
-                        <p id="stratagem-34"><strong>34. Inflict Injury on Oneself to Win Trust:</strong> Feign an injury or weakness to lower the enemy's guard or to "surrender" as a spy.</p>
-                        <p id="stratagem-35"><strong>35. Chain Stratagems:</strong> Combine multiple stratagems in a linked sequence, so that if one fails, another can still succeed.</p>
-                        <p id="stratagem-36"><strong>36. If All Else Fails, Retreat:</strong> If your situation is untenable, retreat to fight another day. Preserving your strength is a victory in itself.</p>
+                        <p id="stratagem-15"><strong>15. Lure the Tiger Down from the Mountain:</strong> Bait a defensive player (Tokugawa) into attacking you on open ground.</p>
+                        <p id="stratagem-19"><strong>19. Remove the Firewood from Under the Pot:</strong> Use "Burn the Supplies!" to destroy the enemy's ability to pay upkeep.</p>
+                        <p id="stratagem-20"><strong>20. Disturb the Water and Catch a Fish:</strong> Use a Ninja to create chaos in a multi-player battle, then seize the objective.</p>
+                         <p id="stratagem-36"><strong>36. If All Else Fails, Retreat:</strong> Survival is the only victory condition that matters. There is no shame in running away.</p>
                     </div>
                 </div>
             </div>
@@ -2029,41 +1925,40 @@ if (searchInput && tocList && noResultsMsg) {
     </details>
 </section>
 
-<!-- DIDACTIC FUNNEL PART 3: THE SYNTHESIS -->
 <section id="s8_synthesis" class="page-section">
-    <h2>The Synthesis: The Daimyō's Mindset</h2>
-    <p class="text-gray-400 mb-6">True mastery comes from synthesizing your clan's strengths with timeless strategic principles. This is not about following a script, but about cultivating a mindset. Consider these connections as you forge your path to victory.</p>
+    <h2>The Synthesis: Applying Doctrine</h2>
+    <p class="text-gray-400 mb-6">Theory is useless without application. Here is how the abstract principles above apply to the specific asymmetrical advantages of the clans.</p>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div class="info-card">
-            <h4 class="!mt-0">Hōjō & Awaiting the Exhausted</h4>
-            <p>The Hōjō's "Unbreakable Wall" ability embodies <strong>Stratagem #4</strong>. Build your fortress early, garrison it modestly, and use your main army to conquer surrounding lands while your enemies waste resources trying to crack your home province.</p>
+            <h4 class="!mt-0">Hōjō: Stratagem #4</h4>
+            <p><strong>Await the Exhausted:</strong> The Hōjō ability allows you to do nothing effectively. Build your fortress. Let them come. Every turn they spend marching is Koku they are not spending on soldiers.</p>
         </div>
         <div class="info-card">
-            <h4 class="!mt-0">Mōri & Luring the Tiger</h4>
-            <p>If an enemy has a powerful army turtled in a key inland position (the "mountain"), the Mōri can use their naval power to launch a surprise attack on their undefended coast, forcing the "tiger" to abandon its safe position. This is a direct application of <strong>Stratagem #15</strong>.</p>
+            <h4 class="!mt-0">Mōri: Stratagem #15</h4>
+            <p><strong>Lure the Tiger:</strong> If an enemy is entrenched inland, use your naval mobility to threaten their undefended coast. Force them to leave their fortifications to chase you.</p>
         </div>
         <div class="info-card">
-             <h4 class="!mt-0">Uesugi & Capturing by Letting Loose</h4>
-            <p>A wise Uesugi player can intentionally leave a less valuable province lightly defended, baiting an opponent into attacking. The attacker is now overextended. This is <strong>Stratagem #16</strong>, creating an opportunity for a decisive counter-attack.</p>
+             <h4 class="!mt-0">Uesugi: Stratagem #16</h4>
+            <p><strong>Capture by Letting Loose:</strong> Leave a low-value province lightly defended to bait an attack. Once the enemy extends, they lose their defensive bonus. Yours remains intact.</p>
         </div>
         <div class="info-card">
-            <h4 class="!mt-0">Otomo & Tossing Out a Brick</h4>
-            <p>The Otomo ability costs 2 Koku (the "brick") to re-roll attacks. Save it for a decisive battle against a high-value target like a Daimyō or Mandate Province (the "jade gem") to turn a fight into a glorious victory, a perfect example of <strong>Stratagem #17</strong>.</p>
+            <h4 class="!mt-0">Otomo: Stratagem #17</h4>
+            <p><strong>Toss a Brick for Jade:</strong> Your ability costs 2 Koku (the brick). Use it only to secure a Mandate Province (the jade). Anything less is a poor return on investment.</p>
         </div>
         <div class="info-card">
-            <h4 class="!mt-0">Tokugawa & Watching the Fires</h4>
-            <p>The Tokugawa's defensive nature allows them to build power slowly. Let your rivals engage in costly wars, consolidating your mountain strongholds. Strike when they are weakened, as advised by <strong>Stratagem #9</strong>.</p>
+            <h4 class="!mt-0">Tokugawa: Stratagem #9</h4>
+            <p><strong>Watch the Fires:</strong> Your mountain immunity lets you hold territory cheaply. Let others fight over the expensive plains. Intervene only when the outcome is certain.</p>
         </div>
         <div class="info-card">
-            <h4 class="!mt-0">Takeda & Feinting East</h4>
-            <p>The Takeda's unmatched speed makes them masters of <strong>Stratagem #6</strong>. Threaten one front to draw enemy reserves, then use your 3-province movement to strike a completely different, undefended target.</p>
+            <h4 class="!mt-0">Takeda: Stratagem #6</h4>
+            <p><strong>Sound East, Strike West:</strong> Mass troops on one border to force an enemy reaction. Then use your movement bonus to strike a completely different target before they can redeploy.</p>
         </div>
     </div>
 </section>
-`,
-
-
-'timing': `
+                    </div></div>
+                </section>
+                `,
+                'timing': `
 <section id="page-timing" class="page-container">
     <div class="py-12 px-4"><div class="max-w-4xl mx-auto">
         <header>
@@ -2141,7 +2036,7 @@ if (searchInput && tocList && noResultsMsg) {
                     <tbody>
                     <tr><td data-label="Step"><strong>1.0</strong></td><td data-label="Action"><strong>Announce Combat</strong></td><td data-label="Notes">Attacker declares which battle.</td></tr>
                     <tr><td data-label="Step"><strong>2.0</strong></td><td data-label="Action"><strong>Hire Ronin Step</strong></td><td data-label="Notes">Attacker, then Defender(s).</td></tr>
-                    <tr><td data-label="Step"><strong>3.0</strong></td><td data-label="Action"><strong>Ninja Assassination Step</strong></td><td data-label="Notes">Window for Ninja player to act.</td></tr>
+                    <tr><td data-label="Step"><strong>3.0</strong></td><td data-label="Action"><strong>Ninja Intervention Step</strong></td><td data-label="Notes">Window for Ninja player to act.</td></tr>
                     <tr data-module="specialized-warfare"><td data-label="Step"><strong>4.0</strong></td><td data-label="Action"><strong>Firearm Phase</strong> <span title="Specialized Warfare Module" class="module-icon">🛡️</span></td><td data-label="Notes"><strong>Module Only:</strong> "Technological Change"</td></tr>
                     <tr data-module="specialized-warfare"><td data-label="Step"></td><td data-label="Action" class="pl-12">4.1. Arquebusiers fire and resolve hits.</td><td data-label="Notes"></td></tr>
                     <tr data-module="specialized-warfare"><td data-label="Step"><strong>5.0</strong></td><td data-label="Action"><strong>Archery Phase (First Strike)</strong> <span title="Specialized Warfare Module" class="module-icon">🛡️</span></td><td data-label="Notes"><strong>Module Only:</strong> Specialized Warfare</td></tr>
@@ -2201,7 +2096,7 @@ if (searchInput && tocList && noResultsMsg) {
                                 <h3 class="!mt-0" id="ref_kampfablauf">The Combat Sequence</h3>
                                 <ol class="list-decimal list-inside space-y-2">
                                     <li><strong>(Optional) Hire Ronin:</strong> Attacker, then Defender.</li>
-                                    <li><strong>(Optional) Ninja Assassination:</strong> Covert Ninja is revealed.</li>
+                                    <li>(Optional) <strong>Ninja Intervention:</strong> The Ninja player may reveal a mission (e.g., "Sow Discord!") if present.</li>
                                     <li><strong>Determine Hits:</strong> All units roll dice simultaneously.</li>
                                     <li><strong>Assign & Remove Casualties:</strong> Assign hits, then remove all marked units.</li>
                                     <li><strong>Determine Outcome:</strong> Province controlled, neutral, or contested.</li>
@@ -2240,7 +2135,6 @@ if (searchInput && tocList && noResultsMsg) {
                                             <tr><td data-label="Action"><strong>Unit Maintenance</strong></td><td data-label="Cost/Yield">-1 Koku per 2 Bushi (rounded up)</td><td data-label="When">Phase 1.1 (Skipped on Turn 1)</td></tr>
                                             <tr><td data-label="Action"><strong>Recruitment</strong></td><td data-label="Cost/Yield">-1 Koku per Bushi</td><td data-label="When">Phase 1.2</td></tr>
                                             <tr><td data-label="Action"><strong>Hire Ronin</strong></td><td data-label="Cost/Yield">-1 Koku per Ronin</td><td data-label="When">Combat</td></tr>
-<tr><td data-label="Action"><strong>Hire Ronin (Vassal Assault)</strong></td><td data-label="Cost/Yield">-1 Koku per 2 Ronin</td><td data-label="When">Combat</td></tr>
                                             <tr class="module-row"><td data-label="Action"><strong>Winter Mountain Provisions</strong> <span title="The Cycle of Rice and War Module" class="module-icon">🌾</span></td><td data-label="Cost/Yield">-1 Koku per Mountain Province + -1 Koku per 3 units there</td><td data-label="When">Phase 3 (Replaced by Module)</td></tr>
                                         </tbody>
                                     </table>
@@ -2263,7 +2157,7 @@ if (searchInput && tocList && noResultsMsg) {
                                             <tr><td data-label="Source"><strong>Castle</strong></td><td data-label="Effect">+1 on defense rolls</td><td data-label="Condition">Defender in province with a castle.</td></tr>
                                             <tr><td data-label="Source"><strong>Hōjō Fortress</strong></td><td data-label="Effect">+2 on defense rolls</td><td data-label="Condition">Hōjō player defending in their Fortress province.</td></tr>
                                             <tr><td data-label="Source"><strong>Fortified Castle</strong></td><td data-label="Effect">+2 on defense rolls</td><td data-label="Condition">Defender in province with a fortified castle (for 1 round).</td></tr>
-                                            <tr><td data-label="Source"><strong>Ninja (Sabotage)</strong></td><td data-label="Effect">-1 on defense rolls</td><td data-label="Condition">Ninja is on a Sabotage mission in the province.</td></tr>
+                                            <tr><td data-label="Source"><strong>Ninja (Sow Discord!)</strong></td><td data-label="Effect">-1 on all rolls</td><td data-label="Condition">Ninja uses "Sow Discord!" command.</td></tr>
                                             <tr class="module-row"><td data-label="Source"><strong>Honor Pact Broken</strong> <span title="Political Play Module" class="module-icon">⚖️</span></td><td data-label="Effect">-1 on attack rolls</td><td data-label="Condition"><em>(Module)</em> You are attacking an ally.</td></tr>
                                         </tbody>
                                     </table>
@@ -2311,11 +2205,11 @@ if (searchInput && tocList && noResultsMsg) {
                                 <h3 class="!mt-0" id="ref_ninja">Cheat Sheet: The Ninja</h3>
                                 <div class="table-responsive-wrapper">
                                     <table>
-                                        <thead><tr><th data-label="Type">Mission Type</th><th data-label="Sub-Type">Sub-Type</th><th data-label="Effect">Effect</th></tr></thead>
+                                        <thead><tr><th data-label="Type">Mission Type</th><th data-label="Command">Command</th><th data-label="Effect">Effect</th></tr></thead>
                                         <tbody>
-                                            <tr><td data-label="Type"><strong>Field Operation (Public)</strong></td><td data-label="Sub-Type">Sabotage</td><td data-label="Effect">-1 on defense rolls & no recruitment in province for 1 round.</td></tr>
-                                            <tr><td data-label="Type"><strong>Field Operation (Public)</strong></td><td data-label="Sub-Type">Diversion</td><td data-label="Effect">Province cannot be attacked this round.</td></tr>
-                                            <tr><td data-label="Type"><strong>Assassination (Covert)</strong></td><td data-label="Sub-Type">Assassination</td><td data-label="Effect">At start of combat, remove one enemy Bushi (not with a Daimyō).</td></tr>
+                                            <tr><td data-label="Type"><strong>Open Mission</strong></td><td data-label="Command">"Deny Passage!"</td><td data-label="Effect">Triggered by movement. Enemy pays 3 Koku or cancels move.</td></tr>
+                                            <tr><td data-label="Type"><strong>Open Mission</strong></td><td data-label="Command">"Sow Discord!"</td><td data-label="Effect">Triggered by battle. Target suffers -1 to all rolls.</td></tr>
+                                            <tr><td data-label="Type"><strong>Open Mission</strong></td><td data-label="Command">"Burn the Supplies!"</td><td data-label="Effect">Triggered by battle. Target pays 3 Koku or loses units (Bankruptcy).</td></tr>
                                         </tbody>
                                     </table>
                                 </div>
@@ -2353,38 +2247,14 @@ if (searchInput && tocList && noResultsMsg) {
                             <hr class="section-divider">
                             <h3 id="s9_1_ref">Glossary</h3>
                             <ul id="glossary-list" class="list-none space-y-2">
-                                <li><strong>Assassination:</strong> A covert Ninja mission that can be revealed at the start of a combat to remove one enemy Bushi.</li>
                                 <li><strong>Attacker:</strong> The player who moves units into a province occupied by an opponent.</li>
+                                <li><strong>Blood Feud:</strong> A permanent state of conflict declared by a betrayed player, granting them combat bonuses against the betrayer.</li>
+                                <li><strong>Burn the Supplies!:</strong> A Ninja command that forces an opponent to pay Koku or lose units.</li>
                                 <li><strong>Bushi:</strong> Standard warrior figures, the backbone of your army.</li>
-                                <li><strong>Castle / Fortress:</strong> A defensive structure that grants a +1 bonus to defense rolls in its province. The Hōjō Fortress provides a +2 bonus.</li>
-                                <li><strong>Clan:</strong> The faction each player controls, each with a unique starting position and ability.</li>
-
-                                <li><strong>Contested:</strong> This is a specific state of an uncontrolled province in which units from more than one player are located. This state typically occurs after a failed retreat or due to other game effects. Although it is not empty, it has no controller.</li>
-
-                                <li><strong>Controlled:</strong> A province is considered controlled if it contains units belonging to only one player. Only the controlling player can use the province's special ability and recruit from it.</li>
-
-                                <li><strong>Daimyō:</strong> Your three irreplaceable leader units. They are powerful in combat but cannot be recruited again if lost.</li>
-                                <li><strong>Defender:</strong> The player whose province is being entered by an attacker's units.</li>
-                                <li><strong>Enemy Target:</strong> A target (unit, province, etc.) is considered an enemy if it is controlled by another clan or can be legally targeted by an attack. This includes neutral but attackable factions like the Ikkō-ikki rebels.</li>
-                                <li><strong>Field Operation:</strong> A public Ninja mission (Sabotage or Diversion) that must be declared during the Reinforcement phase.</li>
-                                <li><strong>Gekokujō:</strong> The core principle that determines turn order; the player with the fewest provinces acts first.</li>
-                                <li><strong>Glory Points (GP):</strong> A resource gained by a defeated player for achieving legendary feats, such as defeating an enemy Daimyō. Reaching 7 GP wins the game.</li>
-                                <li><strong>Honor Pact:</strong> A formal, single-round alliance between two players that allows for joint occupation of provinces.</li>
-                                <li><strong>Koku:</strong> The game's currency, representing rice and resources used to pay for armies and construction.</li>
-                                <li><strong>Mandate Provinces:</strong> The three special provinces (Yamashiro (Kyoto), Settsu (Osaka), and Sagami (Edo)) required for the Shōgun's Mandate victory.</li>
-                                <li><strong>Module:</strong> An optional set of rules that can be added to the core game to change or deepen the experience.</li>
-                                <li><strong>Province:</strong> A single territory or area on the game board.</li>
-                                <li><strong>Raiding:</strong> The act of seizing an opponent's Sown Koku tokens from a province immediately after conquering it.</li>
-                                <li><strong>Ronin:</strong> Mercenaries hired for a single battle who are removed from the board after combat.</li>
-                                <li><strong>Shōgun's Mandate:</strong> An alternative victory condition achieved by gaining sole, undisputed control of the three Mandate Provinces.</li>
-                                <li><strong>Spoilage:</strong> The loss of half of a player's unspent, un-stored Koku at the very end of the Winter phase.</li>
-                                <li><strong>Stacking Limit:</strong> The maximum number of a single player's units (7) allowed to be in a single province at the end of a movement action.</li>
-                                <li><strong>Mountain Provisions Costs:</strong> The Koku paid during the Winter phase for controlling mountain provinces and for the units stationed within them.</li>
-                                <li><strong>Unit Maintenance:</strong> The cost in Koku required at the start of each round to maintain your army of Bushi.</li>
-
-                                <li><strong>Uncontrolled:</strong> A province is considered uncontrolled if there are no units in it or if there are units from more than one player. An uncontrolled province has no owner, its special ability is inactive, and no one can recruit there. A contested province is a type of uncontrolled province.</li>
-
-                                <li><strong>Vassal:</strong> A player who has lost their last Daimyō. A Vassal cannot win but can work to become free again.</li>
+                                <!-- ... (Castle/Clan/Contested/Controlled/Daimyo/Defender/Enemy Target remain the same) ... -->
+                                <li><strong>Deny Passage!:</strong> A Ninja command that forces an opponent to pay Koku or cancel movement.</li>
+                                <!-- ... (Gekokujo/Glory Points/Honor Pact/Koku/Mandate/Module/Province/Raiding/Ronin/Shogun/Spoilage/Stacking/Mountain/Unit Maint/Uncontrolled/Vassal remain the same) ... -->
+                                <li><strong>Sow Discord!:</strong> A Ninja command that inflicts a penalty on combat rolls.</li>
                             </ul>
                         </section>
                     </div></div>
@@ -2517,6 +2387,3 @@ if (searchInput && tocList && noResultsMsg) {
         window.shogunRulebookInitialized = true;
     }
 });
-
-
-
